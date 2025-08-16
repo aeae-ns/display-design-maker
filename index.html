@@ -1564,16 +1564,37 @@
       ['webkitMaskPosition', 'maskPosition'].forEach(p => faceUnderlay.style[p] = 'center');
     }
 
-    async function useFaceSrc(src) {
-      faceImg.src = src;
-      await ('decode' in faceImg ? faceImg.decode().catch(() => {}) : new Promise(res => { faceImg.onload = res; }));
-      applyFaceMask(src);
-      faceUnderlay.style.width = `${faceImg.naturalWidth}px`;
-      faceUnderlay.style.height = `${faceImg.naturalHeight}px`;
-      await refreshBakedUnderlay();
-      initFaceTopIfPinned(true);
-      applyTransforms();
+// ↓↓↓↓ この関数全体を置き換えてください ↓↓↓↓
+async function useFaceSrc(src) {
+  // 古いonloadイベントハンドラを解除し、initPositionsが意図せず呼ばれるのを防ぎます
+  faceImg.onload = null;
+
+  // 新しいソースを設定し、読み込み完了を待ちます
+  faceImg.src = src;
+  try {
+    // 'decode' は画像が完全にデコードされるのを待つモダンな方法です
+    if ('decode' in faceImg) {
+      await faceImg.decode();
+    } else {
+      // decode非対応ブラウザのためのフォールバックです
+      await new Promise((resolve, reject) => {
+        faceImg.onload = resolve;
+        faceImg.onerror = reject;
+      });
     }
+  } catch (e) {
+    console.error("顔画像の読み込みに失敗しました:", e);
+  }
+  
+  // 読み込み完了後に、顔画像に関連する処理のみを実行します
+  applyFaceMask(src);
+  faceUnderlay.style.width = `${faceImg.naturalWidth}px`;
+  faceUnderlay.style.height = `${faceImg.naturalHeight}px`;
+  await refreshBakedUnderlay();
+  initFaceTopIfPinned(true); // 顔の位置を調整
+  applyTransforms(); // 現在の状態を再適用
+}
+// ↑↑↑↑ この関数全体を置き換えてください ↑↑↑↑
 
     if (faceChooseBtn) faceChooseBtn.addEventListener('click', () => faceFileInput.click());
     if (faceFileInput) faceFileInput.addEventListener('change', () => {
