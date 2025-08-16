@@ -1,0 +1,2290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DISPLAY DESIGN MAKER</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --z-underlay: 9;     /* 顔下地 baked含む */
+      --z-face: 10;        /* 顔アップ（背面） */
+      --z-body: 12;        /* 全身（前面） */
+      --z-stamp: 15;       /* スタンプ */
+      --z-text: 50;        /* テキスト群（名前/よみ/コメント/ユーザー名） */
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      color: #212529;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .ratio-16-9 { position: relative; width: 100%; }
+    .ratio-16-9::before { content: ""; display: block; padding-top: 56.25%; }
+    .ratio-16-9 > .ratio-inner { position: absolute; inset: 0; }
+    .grabbing { cursor: grabbing !important; }
+    .grab { cursor: grab; }
+    .text-glow { text-shadow: 0 2px 18px rgba(0,0,0,0.45), 0 1px 6px rgba(0,0,0,0.35); }
+    .no-select { user-select: none; -webkit-user-select: none; }
+    .visually-hidden { position: absolute !important; left: -9999px !important; }
+    .btn { transition: transform .08s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease; }
+    .btn:active { transform: translateY(1px); }
+    .font-mincho { font-family: 'Shippori Mincho', serif; }
+    .font-gothic { font-family: 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji', sans-serif; }
+    /* Hide gradient/image config blocks until selected */
+    .hidden-block { display: none; }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      padding: 40px 0;
+      position: relative;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 2px;
+      background: linear-gradient(90deg, #495057, #6c757d);
+      border-radius: 1px;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2d3748;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .header p {
+      color: #64748b;
+      font-size: 0.9rem;
+      font-weight: 400;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 48px;
+      margin-bottom: 40px;
+      align-items: start; /* グリッドアイテムの縦方向ストレッチを止める */
+    }
+
+    .preview-section {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      padding: 32px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+      position: relative;
+      overflow: hidden;
+      align-self: start;
+      height: fit-content;
+    }
+
+    .preview-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #495057, #6c757d, #868e96);
+    }
+
+    .controls-section {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+      height: fit-content;
+      overflow: hidden;
+      align-self: start;
+    }
+
+    .controls-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #495057, #6c757d, #868e96);
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 24px;
+      color: #1e293b;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tabs {
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .tabs nav {
+      display: flex;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 16px;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #64748b;
+      background: rgba(248, 250, 252, 0.8);
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .tab-btn[aria-selected="true"] {
+      background: linear-gradient(135deg, #495057, #343a40);
+      color: white;
+    }
+
+    .tab-btn:hover:not([aria-selected="true"]) {
+      background: rgba(241, 245, 249, 0.9);
+      color: #475569;
+    }
+
+    .subtab-btn {
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 1px solid #d1d5db;
+      background: linear-gradient(135deg, #ffffff, #f8fafc);
+      color: #374151;
+    }
+
+    .subtab-btn.bg-neutral-900 {
+      background: linear-gradient(135deg, #495057, #343a40);
+      color: white;
+      border-color: #343a40;
+    }
+
+    .subtab-btn:hover:not(.bg-neutral-900) {
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .tab-content {
+      padding: 32px;
+    }
+
+    .control-group {
+      margin-bottom: 24px;
+    }
+
+    .control-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #374151;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .control-input, .control-select {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      color: #374151;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+
+    .control-input:focus, .control-select:focus {
+      outline: none;
+      border-color: #495057;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(73, 80, 87, 0.1);
+    }
+
+    .btn-modern {
+      background: linear-gradient(135deg, #ffffff, #f8fafc);
+      color: #374151;
+      border: 1px solid #d1d5db;
+      padding: 12px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .btn-modern:hover {
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-modern.btn-primary {
+      background: linear-gradient(135deg, #495057, #343a40);
+      color: white;
+      border: 1px solid #343a40;
+    }
+
+    .btn-modern.btn-primary:hover {
+      background: linear-gradient(135deg, #343a40, #212529);
+    }
+
+    .btn-modern.btn-secondary {
+      background: linear-gradient(135deg, #6c757d, #495057);
+      color: white;
+      border: 1px solid #495057;
+    }
+
+    .btn-modern.btn-secondary:hover {
+      background: linear-gradient(135deg, #495057, #343a40);
+    }
+
+    .range-input {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: linear-gradient(90deg, #e2e8f0, #cbd5e1);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .range-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #64748b, #475569);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+    }
+
+    .range-input::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #64748b, #475569);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+    }
+
+    .preview-container {
+      min-height: 400px;
+      background:
+        linear-gradient(45deg, #f8f9fa 25%, transparent 25%),
+        linear-gradient(-45deg, #f8f9fa 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #f8f9fa 75%),
+        linear-gradient(-45deg, transparent 75%, #f8f9fa 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      border: 2px dashed #ced4da;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .preview-container:hover {
+      border-color: #495057;
+    }
+
+    .preview-placeholder {
+      color: #64748b;
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    .upload-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+      color: #94a3b8;
+    }
+
+    .radio-group {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-top: 8px;
+    }
+
+    .radio-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .radio-item input[type="radio"] {
+      accent-color: #495057;
+      width: 16px;
+      height: 16px;
+    }
+
+    .color-input {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      padding: 0;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .color-input:hover {
+      border-color: #495057;
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+
+      .header h1 {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* z-index統一とスタンプ要素 */
+    #faceUnderlay, #faceUnderlayBaked { z-index: var(--z-underlay); }
+    #faceImage { z-index: var(--z-face); }
+    #bodyImage { z-index: var(--z-body); }
+
+    #stampImage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transform-origin: 50% 50%;
+      max-width: none;
+      pointer-events: none;
+      user-select: none;
+      display: none;
+      z-index: var(--z-stamp);
+    }
+
+    /* ステージ（16:9の描画領域） */
+    .ratio-16-9 {
+      overflow: hidden; /* 回転＆拡張時のはみ出しを隠す */
+    }
+
+    /* 背景画像レイヤ */
+    #bgImageLayer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100%;
+      height: 100%;
+      transform: translate(-50%, -50%); /* 中央基準 */
+      transform-origin: 50% 50%;
+      background-repeat: no-repeat;
+    }
+
+    /* テキスト群 */
+    .absolute[style*="z-index:20"], .absolute[style*="z-index:40"], .absolute[style*="z-index:50"], .absolute[style*="z-index:60"], .absolute[style*="z-index:70"] {
+      z-index: var(--z-text) !important;
+    }
+
+    /* 生成中オーバーレイ（添付ツールと同一） */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.8);
+      display: none;              /* 初期は非表示 */
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 200;               /* 他要素より前面 */
+    }
+    /* CSSスピナー */
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #d1d5db;
+      border-top-color: #475569;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* テキスト */
+    .loading-text {
+      margin-top: 12px;
+      font-size: 1rem;
+      color: #475569;
+      font-weight: 500;
+    }
+
+    /* スライダーグループ（−/+ボタン付き） */
+    .control-slider-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .slider-btn {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #ffffff, #f8fafc);
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      color: #374151;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .slider-btn:hover {
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .slider-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .range-input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .control-slider-group .range-input {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: linear-gradient(90deg, #e2e8f0, #cbd5e1);
+      border-radius: 3px;
+      outline: none;
+      margin: 0;
+    }
+
+    .control-slider-group .range-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #64748b, #475569);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+    }
+
+    .control-slider-group .range-input::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #64748b, #475569);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <h1>DISPLAY DESIGN MAKER</h1>
+      <p>Ver.β</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="main-content">
+      <section class="preview-section">
+        <div class="section-title">
+          ✦ Preview
+        </div>
+
+        <div id="loadingOverlay" class="loading-overlay">
+          <div class="spinner"></div>
+          <div class="loading-text">⏳ 処理中です…</div>
+        </div>
+
+        <div id="previewWrapper" class="ratio-16-9" data-initial-bg="solid" style="border-radius: 16px; overflow: hidden; position: relative;">
+          <div id="preview" class="ratio-inner relative">
+            <div id="bgBase" class="absolute inset-0"></div>
+            <div id="bgImageLayer" class="absolute inset-0"></div>
+
+            <div id="faceUnderlay" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style="display:none; z-index:9; max-width:none;"></div>
+
+            <img id="faceUnderlayBaked"
+                 alt=""
+                 class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
+                 style="display:none; z-index:9; max-width:none;" />
+
+            <img id="faceImage" alt="" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none" style="opacity:0.4; max-width:none; display:none; z-index:10;" />
+
+            <div class="absolute left-6 right-6 top-6 md:left-8 md:right-8 md:top-8 pointer-events-none" style="z-index:20;">
+              <div id="scenarioOut" class="text-sm md:text-base tracking-wide text-white/85 text-glow"></div>
+              <div id="subtitleOut" class="mt-1 text-[11px] md:text-xs tracking-wide text-white/70 text-glow"></div>
+            </div>
+
+            <img id="bodyImage" alt="" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none drop-shadow-[0_20px_40px_rgba(0,0,0,0.35)]" style="max-width:none; display:none; z-index:30;" />
+
+            <img id="stampImage" alt="stamp" />
+
+            <div id="accountOut" class="absolute right-6 md:right-8 top-6 md:top-8 text-xs md:text-sm tracking-wide text-white/85 text-glow pointer-events-none" style="z-index:40;"></div>
+
+            <div id="rubyOut" class="absolute left-5 right-6 md:left-7 md:right-8 bottom-16 md:bottom-20 text-[10px] md:text-xs tracking-widest text-white/70 text-glow pointer-events-none" style="z-index:50; transform: translateX(4px);"></div>
+
+            <div id="nameOut" class="absolute left-6 right-6 md:left-8 md:right-8 bottom-8 md:bottom-10 text-3xl md:text-5xl font-semibold tracking-wide text-white text-glow leading-tight pointer-events-none" style="z-index:60;"></div>
+
+            <div id="commentOut" class="absolute right-6 md:right-8 bottom-12 text-right text-[11px] md:text-xs tracking-wide text-white/70 text-glow pointer-events-none" style="z-index:70; white-space: pre-wrap; text-align: right; direction: ltr; unicode-bidi: plaintext; display: inline-block; max-width: 42%;"></div>
+
+            <div class="absolute bottom-2 right-3 text-[10px] md:text-xs tracking-widest text-white/40 select-none pointer-events-none" style="z-index:70;">DISPLAY DESIGN MAKER</div>
+          </div>
+
+          <div id="emptyOverlay" class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center cursor-pointer border-2 border-dashed border-neutral-300 bg-white/60 hover:bg-white/70 transition-colors hover:border-gray-600 p-4">
+            <input id="fileInput" type="file" accept="image/*" class="visually-hidden" />
+            <div class="flex flex-col items-center gap-2 md:gap-3">
+              <div class="upload-icon">+</div>
+              <div class="preview-placeholder">
+                <p class="mb-1">画像をドラッグ&ドロップ</p>
+                <p class="text-sm opacity-80">クリックしてアップロード</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="controls-section">
+        <div class="tabs">
+          <nav>
+            <button data-tab="input" class="tab-btn" aria-selected="true">入力</button>
+            <button data-tab="arrange" class="tab-btn">配置</button>
+            <button data-tab="export" class="tab-btn">出力</button>
+          </nav>
+        </div>
+
+<div id="uploadPrompt" style="text-align: center; color: #64748b; padding: 40px 20px;">
+  <p>PNGファイルをアップロードして<br>デザインを開始</p>
+</div>
+
+        <div class="tab-content">
+          <div id="arrangeSubTabs" class="hidden" style="margin-bottom: 24px;">
+            <nav style="display: flex; gap: 12px;">
+              <button data-subtab="character" class="subtab-btn bg-neutral-900 text-white">キャラクター</button>
+              <button data-subtab="background" class="subtab-btn">背景</button>
+              <button data-subtab="stamp" class="subtab-btn">スタンプ</button>
+            </nav>
+          </div>
+
+          <div id="panel-input" class="tab-panel">
+            <div class="control-group">
+              <label class="control-label">キャラクター名</label>
+              <input id="charName" type="text" placeholder="例）和梨" class="control-input" />
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">よみかた</label>
+              <input id="charRuby" type="text" placeholder="例）WANASHI" class="control-input" />
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">タイトル</label>
+              <input id="scenarioName" type="text" placeholder="例）タイトル" class="control-input" />
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">サブタイトル</label>
+              <input id="subtitle" type="text" placeholder="例）サブタイトル" class="control-input" />
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">コメント</label>
+              <textarea id="comment" rows="3" placeholder="例）コメント・改行可能" class="control-input"></textarea>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">ユーザー名</label>
+              <input id="accountName" type="text" placeholder="例）@aeae_trpg" class="control-input" />
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">フォント</label>
+              <div class="radio-group">
+                <label class="radio-item">
+                  <input type="radio" name="fontFamily" value="gothic" checked>
+                  <span>ゴシック体</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="fontFamily" value="mincho">
+                  <span>明朝体</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">文字色</label>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <input id="textColor" type="color" value="#FFFFFF" class="color-input">
+                <span style="font-size: 0.9rem; color: #64748b;">テキストの色</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <button id="clearImage" class="btn-modern">画像をクリア</button>
+            </div>
+          </div>
+
+          <div id="panel-arrange" class="tab-panel hidden">
+            <div id="subpanel-character" class="hidden">
+              <div class="control-group">
+                <label class="control-label">全身（前面）</label>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+                  <div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>サイズ</span><span id="bodyScaleLabel">100%</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('bodyScale', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="bodyScale" type="range" min="1" max="250" value="100" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('bodyScale', 1)">＋</button>
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>X 位置</span><span id="bodyXLabel">0</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('bodyX', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="bodyX" type="range" min="-800" max="800" value="0" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('bodyX', 1)">＋</button>
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>Y 位置</span><span id="bodyYLabel">0</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('bodyY', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="bodyY" type="range" min="-800" max="800" value="0" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('bodyY', 1)">＋</button>
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:.85rem; color:#64748b;">
+                        <span>角度</span><span id="bodyAngleLabel">0°</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('bodyAngle', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="bodyAngle" type="range" min="-180" max="180" value="0" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('bodyAngle', 1)">＋</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 8px;">
+                    <button id="fitBodyHeight" class="btn-modern" style="flex: 1; font-size: 0.85rem;">高さ合わせ</button>
+                    <button id="fitBodyWidth" class="btn-modern" style="flex: 1; font-size: 0.85rem;">幅合わせ</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label">顔アップ（背面）</label>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+                  <div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>サイズ</span><span id="faceScaleLabel">120%</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('faceScale', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="faceScale" type="range" min="1" max="400" value="120" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('faceScale', 1)">＋</button>
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>不透明度</span><span id="faceOpacityLabel">40%</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('faceOpacity', -5)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="faceOpacity" type="range" min="0" max="100" value="40" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('faceOpacity', 5)">＋</button>
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>X 位置</span><span id="faceXLabel">0</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('faceX', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="faceX" type="range" min="-800" max="800" value="0" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('faceX', 1)">＋</button>
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>Y 位置</span><span id="faceYLabel">0</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('faceY', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="faceY" type="range" min="-2000" max="2000" value="0" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('faceY', 1)">＋</button>
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:.85rem; color:#64748b;">
+                        <span>角度</span><span id="faceAngleLabel">0°</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('faceAngle', -1)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="faceAngle" type="range" min="-180" max="180" value="0" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('faceAngle', 1)">＋</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 8px;">
+                    <button id="fitFaceHeight" class="btn-modern" style="flex: 1; font-size: 0.85rem;">高さ合わせ</button>
+                    <button id="fitFaceWidth" class="btn-modern" style="flex: 1; font-size: 0.85rem;">幅合わせ</button>
+                  </div>
+
+                  <input id="faceFileInput" type="file" accept="image/*" class="visually-hidden" />
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;">
+                    <button id="faceChooseBtn" type="button" class="btn-modern" style="flex:1; font-size:.85rem;">画像変更</button>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+                    <label style="font-size: 0.85rem; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                      <input id="underlayToggle" type="checkbox" checked style="accent-color: #495057;">
+                      <span>下地</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #64748b;">
+                      <input id="faceUnderlayColor" type="color" value="#FFFFFF" class="color-input" style="width: 32px; height: 32px;" />
+                      <span>下地カラー</span>
+                    </div>
+                    <div style="margin-top: 8px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                        <span>下地不透明度</span><span id="underlayOpacityLabel">100%</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('underlayOpacity', -5)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="underlayOpacity" type="range" min="0" max="100" value="100" step="1" class="range-input">
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('underlayOpacity', 5)">＋</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="subpanel-background" class="hidden">
+              <div class="control-group">
+                <label class="control-label">背景設定</label>
+                <div class="radio-group">
+                  <label class="radio-item">
+                    <input type="radio" name="bgMode" value="solid" checked>
+                    <span>ベタ塗り</span>
+                  </label>
+                  <label class="radio-item">
+                    <input type="radio" name="bgMode" value="gradient">
+                    <span>グラデーション</span>
+                  </label>
+                  <label class="radio-item">
+                    <input type="radio" name="bgMode" value="image">
+                    <span>画像</span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="bgSolidBlock" class="control-group">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <input id="bgSolidColor" type="color" value="#dcdcdc" class="color-input">
+                  <span style="font-size: 0.9rem; color: #64748b;">背景色</span>
+                </div>
+              </div>
+
+              <div id="bgGradBlock" class="hidden-block">
+                <div class="control-group">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <input id="bgGradC1" type="color" value="#8A8A8A" class="color-input">
+                    <input id="bgGradC2" type="color" value="#F2F2F2" class="color-input">
+                  </div>
+                  <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                      <span>角度</span><span id="bgGradAngleLabel">0°</span>
+                    </div>
+                    <div class="control-slider-group">
+                      <button class="slider-btn decrease" onclick="adjustSlider('bgGradAngle', -1)">−</button>
+                      <div class="range-input-wrapper">
+                        <input id="bgGradAngle" type="range" min="0" max="360" value="0" step="1" class="range-input">
+                      </div>
+                      <button class="slider-btn increase" onclick="adjustSlider('bgGradAngle', 1)">＋</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="bgImageBlock" class="hidden-block">
+                <div class="control-group">
+                  <div style="margin-bottom: 16px;">
+                    <input id="bgImageInput" type="file" accept="image/*" class="visually-hidden">
+                    <button id="bgChooseBgBtn" type="button" class="btn-modern btn-primary">
+                      <span>📁</span>
+                      ファイルを選択
+                    </button>
+                  </div>
+
+                  <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                      <span>サイズ</span><span id="bgSizeLabel">100%</span>
+                    </div>
+                    <input id="bgScale" type="range" min="1" max="800" value="100" class="range-input" />
+                  </div>
+
+                  <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                      <span>不透明度</span><span id="bgOpacityLabel">100%</span>
+                    </div>
+                    <input id="bgOpacity" type="range" min="0" max="100" value="100" class="range-input" />
+                  </div>
+
+                  <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                      <span>X 位置</span><span id="bgXLabel">0</span>
+                    </div>
+                    <input id="bgX" type="range" min="-800" max="800" value="0" class="range-input" />
+                  </div>
+
+                  <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; color: #64748b;">
+                      <span>Y 位置</span><span id="bgYLabel">0</span>
+                    </div>
+                    <input id="bgY" type="range" min="-800" max="800" value="0" class="range-input" />
+                  </div>
+
+                  <div style="margin-bottom: 16px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:.85rem; color:#64748b;">
+                      <span>角度</span><span id="bgImgAngleLabel">0°</span>
+                    </div>
+                    <input id="bgImgAngle" type="range" min="-180" max="180" value="0" class="range-input" />
+                  </div>
+
+                  <label class="radio-item" style="margin-bottom: 16px;">
+                    <input id="bgTile" type="checkbox">
+                    <span>タイリング</span>
+                  </label>
+
+                  <div id="bgTilePxWrap" class="hidden">
+                    <label class="radio-item" style="margin: 8px 0 6px;">
+                      <input id="bgTileUsePx" type="checkbox">
+                      <span>サイズを px で指定</span>
+                    </label>
+                    <div id="bgTilePxBlock" class="hidden" style="margin-bottom: 16px;">
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:.85rem; color:#64748b;">
+                        <span>タイル幅（px）</span><span id="bgTilePxLabel">64px</span>
+                      </div>
+                      <div class="control-slider-group">
+                        <button class="slider-btn decrease" onclick="adjustSlider('bgTilePx', -4)">−</button>
+                        <div class="range-input-wrapper">
+                          <input id="bgTilePx" type="range" min="2" max="1024" step="1" value="64" class="range-input" />
+                        </div>
+                        <button class="slider-btn increase" onclick="adjustSlider('bgTilePx', 4)">＋</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button id="bgClearImage" class="btn-modern">削除</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="subpanel-stamp" class="hidden">
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin:12px 0;">
+                <input id="stampFileInput" type="file" accept="image/*" class="visually-hidden" />
+                <button id="stampChooseBtn" type="button" class="btn-modern" style="flex:1;">画像を選択</button>
+                <button id="stampClearBtn"  type="button" class="btn-modern" style="flex:1;">クリア</button>
+                <label style="display:flex;align-items:center;gap:6px;">
+                  <input id="stampVisible" type="checkbox" checked />
+                  表示
+                </label>
+              </div>
+
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:.85rem;color:#64748b;"><span>X</span><span id="stampXLabel">0</span></div>
+                <div class="control-slider-group">
+                  <button class="slider-btn decrease" onclick="adjustSlider('stampX', -1)">−</button>
+                  <div class="range-input-wrapper">
+                    <input id="stampX" type="range" min="-800" max="800" value="0" step="1" class="range-input"/>
+                  </div>
+                  <button class="slider-btn increase" onclick="adjustSlider('stampX', 1)">＋</button>
+                </div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:.85rem;color:#64748b;"><span>Y</span><span id="stampYLabel">0</span></div>
+                <div class="control-slider-group">
+                  <button class="slider-btn decrease" onclick="adjustSlider('stampY', -1)">−</button>
+                  <div class="range-input-wrapper">
+                    <input id="stampY" type="range" min="-800" max="800" value="0" step="1" class="range-input"/>
+                  </div>
+                  <button class="slider-btn increase" onclick="adjustSlider('stampY', 1)">＋</button>
+                </div>
+              </div>
+
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:.85rem;color:#64748b;"><span>スケール</span><span id="stampScaleLabel">100%</span></div>
+                <div class="control-slider-group">
+                  <button class="slider-btn decrease" onclick="adjustSlider('stampScale', -1)">−</button>
+                  <div class="range-input-wrapper">
+                    <input id="stampScale" type="range" min="10" max="300" value="100" step="1" class="range-input"/>
+                  </div>
+                  <button class="slider-btn increase" onclick="adjustSlider('stampScale', 1)">＋</button>
+                </div>
+              </div>
+
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:.85rem;color:#64748b;"><span>角度</span><span id="stampAngleLabel">0°</span></div>
+                <div class="control-slider-group">
+                  <button class="slider-btn decrease" onclick="adjustSlider('stampAngle', -1)">−</button>
+                  <div class="range-input-wrapper">
+                    <input id="stampAngle" type="range" min="-180" max="180" value="0" step="1" class="range-input"/>
+                  </div>
+                  <button class="slider-btn increase" onclick="adjustSlider('stampAngle', 1)">＋</button>
+                </div>
+              </div>
+
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:.85rem;color:#64748b;"><span>不透明度</span><span id="stampOpacityLabel">100%</span></div>
+                <div class="control-slider-group">
+                  <button class="slider-btn decrease" onclick="adjustSlider('stampOpacity', -5)">−</button>
+                  <div class="range-input-wrapper">
+                    <input id="stampOpacity" type="range" min="0" max="100" value="100" step="1" class="range-input"/>
+                  </div>
+                  <button class="slider-btn increase" onclick="adjustSlider('stampOpacity', 5)">＋</button>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                <button id="stampResetBtn" type="button" class="btn-modern" style="flex:1;">位置と角度をリセット</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-export" class="tab-panel hidden">
+            <div class="control-group">
+              <label class="control-label">出力</label>
+              <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 16px;">PNG（1200×675）で保存されます。</p>
+              <button id="downloadBtn" class="btn-modern btn-primary">⇩ファイルダウンロード⇩</button>
+            </div>
+            <div style="padding-top: 16px; border-top: 1px solid #e2e8f0;">
+              <p style="font-size: 0.85rem; color: #64748b;">プレビューの内容のみが書き出されます。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <script>
+    // Move character controls into character subpanel after DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      const charPanel = document.getElementById('subpanel-character');
+      const charBlocks = document.querySelectorAll('.subpanel-character-contents');
+      const sections = Array.from(document.querySelectorAll('#panel-arrange > .subpanel-character-contents'));
+      if (charPanel && charBlocks.length && sections.length === 2) {
+        charBlocks[0].replaceWith(sections[0]);
+        charBlocks[1].replaceWith(sections[1]);
+      }
+    });
+
+    // Tabs
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const panels = {
+      input: document.getElementById('panel-input'),
+      arrange: document.getElementById('panel-arrange'),
+      export: document.getElementById('panel-export')
+    };
+    function setTab(name) {
+      tabButtons.forEach(btn => {
+        const active = btn.dataset.tab === name;
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      Object.entries(panels).forEach(([key, el]) => {
+        el.classList.toggle('hidden', key !== name);
+      });
+    }
+    tabButtons.forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+    setTab('input');
+// 追加：UIロック状態
+let uiLocked = true;
+
+// 参照
+const controlsWrap = document.querySelector('.tab-content');
+const uploadPrompt = document.getElementById('uploadPrompt');
+
+// 追加：アップロード前は設定を触れないようにする
+function lockUI(lock) {
+  uiLocked = !!lock;
+
+  // 右パネル：案内を表示／非表示、コントロール本体は逆
+  if (controlsWrap) controlsWrap.style.display = lock ? 'none' : '';
+  if (uploadPrompt) uploadPrompt.style.display = lock ? 'block' : 'none';
+
+  // タブ：入力以外は押せない（見た目も薄く）
+  tabButtons.forEach(btn => {
+    const isInput = btn.dataset.tab === 'input';
+    const disabled = lock && !isInput;
+    btn.disabled = disabled;
+    btn.style.opacity = disabled ? '0.5' : '1';
+    btn.style.pointerEvents = disabled ? 'none' : '';
+  });
+
+  // ロック時は必ず「入力」タブへ
+  if (lock) setTab('input');
+}
+
+    // Arrange sub-tabs logic
+    const subTabWrap = document.getElementById('arrangeSubTabs');
+    const subTabButtons = document.querySelectorAll('.subtab-btn');
+    const subPanels = {
+      character: document.getElementById('subpanel-character'),
+      background: document.getElementById('subpanel-background'),
+      stamp: document.getElementById('subpanel-stamp')
+    };
+    function setSubTab(name){
+      subTabButtons.forEach(btn => {
+        const active = btn.dataset.subtab === name;
+        btn.classList.toggle('bg-neutral-900', active);
+        btn.classList.toggle('text-white', active);
+      });
+      Object.entries(subPanels).forEach(([key, el]) => {
+        el.classList.toggle('hidden', key !== name);
+      });
+    }
+    function maybeShowSubtabs(){
+      const arrangeActive = document.querySelector('[data-tab="arrange"]').getAttribute('aria-selected') === 'true';
+      subTabWrap.classList.toggle('hidden', !arrangeActive);
+      if (arrangeActive) setSubTab('character');
+    }
+    tabButtons.forEach(btn => btn.addEventListener('click', maybeShowSubtabs));
+    subTabButtons.forEach(btn => btn.addEventListener('click', () => setSubTab(btn.dataset.subtab)));
+    maybeShowSubtabs();
+
+    // Elements
+    const inputs = {
+      name: document.getElementById('charName'),
+      ruby: document.getElementById('charRuby'),
+      scenario: document.getElementById('scenarioName'),
+      subtitle: document.getElementById('subtitle'),
+      comment: document.getElementById('comment'),
+      account: document.getElementById('accountName'),
+    };
+    const outputs = {
+      name: document.getElementById('nameOut'),
+      ruby: document.getElementById('rubyOut'),
+      scenario: document.getElementById('scenarioOut'),
+      subtitle: document.getElementById('subtitleOut'),
+      comment: document.getElementById('commentOut'),
+      account: document.getElementById('accountOut'),
+    };
+
+    const fileInput = document.getElementById('fileInput');
+    const clearBtn = document.getElementById('clearImage');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    const previewWrapper = document.getElementById('previewWrapper');
+    const preview = document.getElementById('preview');
+    const emptyOverlay = document.getElementById('emptyOverlay');
+
+    const bodyImg = document.getElementById('bodyImage');
+    const faceImg = document.getElementById('faceImage');
+    const faceUnderlay = document.getElementById('faceUnderlay');
+    const faceUnderlayBaked = document.getElementById('faceUnderlayBaked');
+
+    // スタンプ要素
+    const stampImage = document.getElementById('stampImage');
+    const stampFileInput = document.getElementById('stampFileInput');
+    const stampChooseBtn = document.getElementById('stampChooseBtn');
+    const stampClearBtn = document.getElementById('stampClearBtn');
+    const stampVisible = document.getElementById('stampVisible');
+    const stampX = document.getElementById('stampX');
+    const stampY = document.getElementById('stampY');
+    const stampScale = document.getElementById('stampScale');
+    const stampAngle = document.getElementById('stampAngle');
+    const stampOpacity = document.getElementById('stampOpacity');
+
+    const stampXLabel = document.getElementById('stampXLabel');
+    const stampYLabel = document.getElementById('stampYLabel');
+    const stampScaleLabel = document.getElementById('stampScaleLabel');
+    const stampAngleLabel = document.getElementById('stampAngleLabel');
+    const stampOpacityLabel = document.getElementById('stampOpacityLabel');
+
+    const stampResetBtn = document.getElementById('stampResetBtn');
+
+    // 顔アップ専用アップロード要素
+    const faceFileInput = document.getElementById('faceFileInput');
+    const faceChooseBtn = document.getElementById('faceChooseBtn');
+
+    // 画像ソース管理
+    const imageSources = {
+      body: '',   // 本体画像の dataURL
+      face: '',   // 顔アップ差分の dataURL（空＝共通）
+    };
+
+    // State object with underlay opacity
+    const state = {
+      body: { x: 0, y: 0, scale: 1, angle: 0 },
+      face: { x: 0, y: 0, scale: 1.2, angle: 0, opacity: 0.4 },
+      underlay: { opacity: 1.0 },
+      bg: { angle: 0 }, // 画像モード時のみ使用
+      stamp: {
+        src: '',
+        x: 0, y: 0,
+        scale: 1,
+        angle: 0,
+        opacity: 1,
+        visible: true
+      }
+    };
+
+    // Baked underlay function with proper opacity handling
+    async function bakeTintedUnderlay(src, color, alphaCombined = 1.0) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const w = img.naturalWidth, h = img.naturalHeight;
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          const ctx = cv.getContext('2d');
+
+          // 1) Fill with color at specified opacity
+          ctx.clearRect(0, 0, w, h);
+          ctx.globalAlpha = Math.max(0, Math.min(1, alphaCombined));
+          ctx.fillStyle = normalizeToRgba(color, ctx.globalAlpha);
+          ctx.fillRect(0, 0, w, h);
+
+          // 2) Clip to image shape (keep only alpha areas)
+          ctx.globalCompositeOperation = 'destination-in';
+          ctx.globalAlpha = 1;
+          ctx.drawImage(img, 0, 0, w, h);
+
+          resolve(cv.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = src;
+      });
+
+      function normalizeToRgba(input, alpha = 1) {
+        // Handle #RGB / #RRGGBB / rgba formats
+        if (input.startsWith('#')) {
+          const h = input.slice(1);
+          const hex = (h.length === 3) ? h.split('').map(c => c + c).join('') : h;
+          const n = parseInt(hex, 16);
+          const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+          return `rgba(${r},${g},${b},${alpha})`;
+        }
+        // rgba/rgb case - extract numbers and reapply alpha
+        const m = input.replace(/\s+/g, '').match(/^rgba?\((\d+),(\d+),(\d+)(?:,([\d.]+))?\)$/i);
+        if (m) {
+          const r = +m[1], g = +m[2], b = +m[3];
+          return `rgba(${r},${g},${b},${alpha})`;
+        }
+        // Fallback
+        return `rgba(255,255,255,${alpha})`;
+      }
+    }
+
+    // Get combined underlay alpha from various sources
+    function getCombinedUnderlayAlpha() {
+      const underlayOpacity = state?.underlay?.opacity ?? 1;
+      const layerOpacity = parseFloat(getComputedStyle(faceUnderlay).opacity) || 1;
+      return Math.max(0, Math.min(1, underlayOpacity * layerOpacity));
+    }
+
+    // Refresh baked underlay with proper opacity
+    async function refreshBakedUnderlay() {
+      const faceSrc = imageSources.face || imageSources.body || faceImg.src;
+      if (!faceSrc) return;
+      const color = document.getElementById('faceUnderlayColor')?.value || '#FFFFFF';
+      const alpha = getCombinedUnderlayAlpha();
+      const bakedUrl = await bakeTintedUnderlay(faceSrc, color, alpha);
+      faceUnderlayBaked.src = bakedUrl;
+      faceUnderlayBaked.style.display = 'none'; // Hidden during preview
+    }
+
+    // Controls
+    const bodyScale = document.getElementById('bodyScale');
+    const faceScale = document.getElementById('faceScale');
+    const faceOpacity = document.getElementById('faceOpacity');
+    const underlayOpacity = document.getElementById('underlayOpacity');
+    const bodyX = document.getElementById('bodyX');
+    const bodyY = document.getElementById('bodyY');
+    const faceX = document.getElementById('faceX');
+    const faceY = document.getElementById('faceY');
+    const bodyAngle = document.getElementById('bodyAngle');
+    const faceAngle = document.getElementById('faceAngle');
+    const bgImgAngle = document.getElementById('bgImgAngle');
+
+    const bodyScaleLabel = document.getElementById('bodyScaleLabel');
+    const faceScaleLabel = document.getElementById('faceScaleLabel');
+    const faceOpacityLabel = document.getElementById('faceOpacityLabel');
+    const underlayOpacityLabel = document.getElementById('underlayOpacityLabel');
+    const bodyXLabel = document.getElementById('bodyXLabel');
+    const bodyYLabel = document.getElementById('bodyYLabel');
+    const faceXLabel = document.getElementById('faceXLabel');
+    const faceYLabel = document.getElementById('faceYLabel');
+    const bodyAngleLabel = document.getElementById('bodyAngleLabel');
+    const faceAngleLabel = document.getElementById('faceAngleLabel');
+    const bgImgAngleLabel = document.getElementById('bgImgAngleLabel');
+
+    const fitBodyHeight = document.getElementById('fitBodyHeight');
+    const fitBodyWidth = document.getElementById('fitBodyWidth');
+    const fitFaceHeight = document.getElementById('fitFaceHeight');
+    const fitFaceWidth = document.getElementById('fitFaceWidth');
+
+    // Font switching and text color
+    const fontRadios = document.querySelectorAll('input[name="fontFamily"]');
+    const textColor = document.getElementById('textColor');
+
+    function applyFont() {
+      const val = [...fontRadios].find(r => r.checked)?.value || 'gothic';
+      const classMincho = 'font-mincho';
+      const classGothic = 'font-gothic';
+      [outputs.name, outputs.ruby, outputs.scenario, outputs.subtitle, outputs.comment, outputs.account].forEach(el => {
+        el.classList.toggle(classGothic, val === 'gothic');
+        el.classList.toggle(classMincho, val === 'mincho');
+      });
+    }
+
+    function applyTextColor() {
+      const color = textColor.value;
+      [outputs.name, outputs.ruby, outputs.scenario, outputs.subtitle, outputs.comment, outputs.account].forEach(el => {
+        el.style.color = color;
+      });
+    }
+
+    fontRadios.forEach(r => r.addEventListener('change', applyFont));
+    if (textColor) {
+      textColor.addEventListener('input', applyTextColor);
+      textColor.addEventListener('change', applyTextColor);
+    }
+
+    applyFont();
+    if (textColor) applyTextColor();
+
+    // Comment alignment adjustments
+    try {
+      outputs.comment.classList.remove('text-left');
+      outputs.comment.classList.add('text-right');
+      outputs.comment.style.textAlign = 'right';
+    } catch (e) {}
+    try {
+      outputs.ruby.style.transform = 'translate(8px, -8px)';
+    } catch (e) {}
+
+    // Text live update
+    Object.entries(inputs).forEach(([key, el]) => {
+      const apply = () => {
+        const val = el.value;
+        switch (key) {
+          case 'name': outputs.name.textContent = val; break;
+          case 'ruby': outputs.ruby.textContent = val; break;
+          case 'scenario': outputs.scenario.textContent = val; break;
+          case 'subtitle': outputs.subtitle.textContent = val; break;
+          case 'comment':
+            outputs.comment.textContent = val;
+            outputs.comment.style.textAlign = 'right';
+            outputs.comment.style.direction = 'ltr';
+            outputs.comment.style.unicodeBidi = 'plaintext';
+            break;
+          case 'account': outputs.account.textContent = val; break;
+        }
+      };
+      el.addEventListener('input', apply);
+      apply();
+    });
+
+    // Drag & Drop + Click on preview when empty
+    const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
+    ['dragenter','dragover','dragleave','drop'].forEach(evt => {
+      previewWrapper.addEventListener(evt, prevent);
+    });
+
+    const setDropActive = (active) => {
+      if (active) {
+        previewWrapper.classList.add('ring-2','ring-neutral-400');
+      } else {
+        previewWrapper.classList.remove('ring-2','ring-neutral-400');
+      }
+    };
+
+    ['dragenter','dragover'].forEach(evt => {
+      previewWrapper.addEventListener(evt, () => setDropActive(true));
+    });
+    ['dragleave','drop'].forEach(evt => {
+      previewWrapper.addEventListener(evt, () => setDropActive(false));
+    });
+
+    function handleDrop(e) {
+      const file = e.dataTransfer?.files?.[0];
+      if (file && file.type.startsWith('image/')) loadImageFile(file);
+    }
+    previewWrapper.addEventListener('drop', handleDrop);
+
+    // Click to open on overlay
+    let openingPicker = false;
+    emptyOverlay.addEventListener('click', (e) => {
+      if (openingPicker) return;
+      openingPicker = true;
+      fileInput.click();
+      setTimeout(()=> openingPicker=false, 600);
+    });
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file && file.type.startsWith('image/')) loadImageFile(file);
+    });
+
+    function loadImageFile(file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const src = ev.target.result;
+        imageSources.body = src; // 本体画像を記録
+
+        let loaded = 0;
+        bodyImg.onload = () => { loaded++; if (loaded === 2) onReady(); };
+        faceImg.onload = () => { loaded++; if (loaded === 2) onReady(); };
+        const onReady = () => {
+          bodyImg.style.display = 'block';
+          faceImg.style.display = 'block';
+
+// 画像ロード完了後（onReadyの末尾あたり）に追記
+lockUI(false);
+
+
+          // 顔アップは差分がなければ body を使う
+          const faceSrc = imageSources.face || imageSources.body;
+
+          faceUnderlay.style.backgroundColor = document.getElementById('faceUnderlayColor')?.value || '#FFFFFF';
+          updateUnderlayVisibility();
+          applyFaceMask(faceSrc); // 共通化した関数
+          faceUnderlay.style.width = faceImg.naturalWidth + 'px';
+          faceUnderlay.style.height = faceImg.naturalHeight + 'px';
+
+          emptyOverlay.style.display = 'none';
+          initPositions();
+          refreshBakedUnderlay(); // 再生成
+        };
+        bodyImg.src = src;
+        faceImg.src = imageSources.face || src; // 差分があれば優先
+      };
+      reader.readAsDataURL(file);
+    }
+
+    clearBtn.addEventListener('click', () => {
+      fileInput.value = '';
+      bodyImg.removeAttribute('src');
+      faceImg.removeAttribute('src');
+      bodyImg.style.display = 'none';
+      faceImg.style.display = 'none';
+      faceUnderlay.style.display = 'none';
+      faceUnderlay.style.webkitMaskImage = '';
+      faceUnderlay.style.maskImage = '';
+      // 画像ソースもクリア
+      imageSources.body = '';
+      imageSources.face = '';
+      emptyOverlay.style.display = '';
+      resetTransforms();
+      setTab('input');
+lockUI(true);
+    });
+
+    function applyTransforms() {
+      const setImg = (img, s) => {
+        const rot = (s.angle || 0);
+        img.style.transform = `translate(-50%, -50%) translate(${s.x}px, ${s.y}px) rotate(${rot}deg) scale(${s.scale})`;
+        if (s.opacity != null) img.style.opacity = String(s.opacity);
+      };
+      if (bodyImg.style.display !== 'none') setImg(bodyImg, state.body);
+      if (faceImg.style.display !== 'none') setImg(faceImg, state.face);
+      if (faceImg.style.display !== 'none') {
+        const t = `translate(-50%, -50%) translate(${state.face.x}px, ${state.face.y}px) rotate(${state.face.angle||0}deg) scale(${state.face.scale})`;
+        faceUnderlay.style.transform = t;
+        faceUnderlay.style.opacity = String(state.underlay.opacity);
+
+        // Apply same transform to baked version
+        faceUnderlayBaked.style.transform = t;
+
+        updateUnderlayVisibility();
+      }
+
+      // スタンプ
+      if (stampImage && state.stamp) {
+        stampImage.style.display = (state.stamp.visible && state.stamp.src) ? 'block' : 'none';
+        if (stampImage.style.display !== 'none') setImg(stampImage, state.stamp);
+      }
+
+      faceImg.style.opacity = String(state.face.opacity);
+      bodyScaleLabel.textContent = Math.round(state.body.scale * 100) + '%';
+      faceScaleLabel.textContent = Math.round(state.face.scale * 100) + '%';
+      faceOpacityLabel.textContent = Math.round(state.face.opacity * 100) + '%';
+      underlayOpacityLabel.textContent = Math.round(state.underlay.opacity * 100) + '%';
+      bodyXLabel.textContent = Math.round(state.body.x);
+      bodyYLabel.textContent = Math.round(state.body.y);
+      faceXLabel.textContent = Math.round(state.face.x);
+      faceYLabel.textContent = Math.round(state.face.y);
+      if (bodyAngleLabel) bodyAngleLabel.textContent = `${Math.round(state.body.angle)}°`;
+      if (faceAngleLabel) faceAngleLabel.textContent = `${Math.round(state.face.angle)}°`;
+
+      bodyX.value = state.body.x;
+      bodyY.value = state.body.y;
+      faceX.value = state.face.x;
+      faceY.value = state.face.y;
+      bodyScale.value = Math.round(state.body.scale * 100);
+      faceScale.value = Math.round(state.face.scale * 100);
+      faceOpacity.value = Math.round(state.face.opacity * 100);
+      underlayOpacity.value = Math.round(state.underlay.opacity * 100);
+      if (bodyAngle) bodyAngle.value = Math.round(state.body.angle);
+      if (faceAngle) faceAngle.value = Math.round(state.face.angle);
+    }
+
+    function resetTransforms() {
+      state.body = { x: 0, y: 0, scale: (bodyScale.value || 100) / 100, angle: (bodyAngle?.value|0) };
+      state.face = {
+        x: 0, y: 0,
+        scale: (faceScale.value || 120) / 100,
+        angle: (faceAngle?.value|0),
+        opacity: (faceOpacity.value || 40) / 100
+      };
+      state.bg.angle = (bgImgAngle?.value|0) || 0;
+      Object.assign(state.stamp, { x: 0, y: 0, angle: 0, scale: 1, opacity: 1, visible: true });
+      state.underlay = { opacity: (underlayOpacity.value || 100) / 100 };
+      applyTransforms();
+    }
+
+    function getFrameSize() {
+      const w = preview.clientWidth;
+      const h = preview.clientHeight;
+      return { w, h };
+    }
+
+    function initPositions() {
+      if (!bodyImg.naturalWidth) { // No body image, can't init
+        applyTransforms();
+        return;
+      }
+      // If face image is not loaded yet, use body image dimensions as a fallback
+      const faceNaturalWidth = faceImg.naturalWidth || bodyImg.naturalWidth;
+      const faceNaturalHeight = faceImg.naturalHeight || bodyImg.naturalHeight;
+
+      const frame = getFrameSize();
+      const halfW = frame.w / 2;
+
+      state.body.scale = frame.h / bodyImg.naturalHeight;
+      state.body.x = -halfW / 2;
+      state.body.y = 0;
+
+      state.face.scale = frame.w / faceNaturalWidth;
+      state.face.x = 0;
+      state.face.y = - (frame.h - faceNaturalHeight * state.face.scale) / 2;
+
+      faceUnderlay.style.width = faceNaturalWidth + 'px';
+      faceUnderlay.style.height = faceNaturalHeight + 'px';
+      applyTransforms();
+    }
+
+
+    // Sliders
+    bodyScale.addEventListener('input', () => { state.body.scale = bodyScale.value / 100; applyTransforms(); });
+    faceScale.addEventListener('input', () => { state.face.scale = faceScale.value / 100; initFaceTopIfPinned(false); applyTransforms(); });
+    faceOpacity.addEventListener('input', () => { state.face.opacity = faceOpacity.value / 100; applyTransforms(); });
+    underlayOpacity.addEventListener('input', () => {
+      state.underlay.opacity = underlayOpacity.value / 100;
+      applyTransforms();
+      refreshBakedUnderlay(); // Update baked image when underlay opacity changes
+    });
+
+    bodyX.addEventListener('input', () => { state.body.x = +bodyX.value; applyTransforms(); });
+    bodyY.addEventListener('input', () => { state.body.y = +bodyY.value; applyTransforms(); });
+    faceX.addEventListener('input', () => { state.face.x = +faceX.value; applyTransforms(); });
+    faceY.addEventListener('input', () => { state.face.y = +faceY.value; applyTransforms(); });
+
+    if (bodyAngle) bodyAngle.addEventListener('input', () => {
+      state.body.angle = +bodyAngle.value || 0;
+      applyTransforms();
+    });
+
+    if (faceAngle) faceAngle.addEventListener('input', () => {
+      state.face.angle = +faceAngle.value || 0;
+      applyTransforms();
+    });
+
+    function initFaceTopIfPinned(force) {
+      if (!faceImg.naturalHeight) return;
+      const frame = getFrameSize();
+      const ih = faceImg.naturalHeight;
+      const topPos = -ih * state.face.scale / 2 + state.face.y;
+      const isPinned = Math.abs(topPos + frame.h/2) < 2;
+      if (force || isPinned) {
+        state.face.y = - (frame.h - ih * state.face.scale) / 2;
+      }
+    }
+
+    // Fit buttons
+    function fitImage(img, target, mode) {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      const frame = getFrameSize();
+      const iw = img.naturalWidth;
+      const ih = img.naturalHeight;
+      const scaleByHeight = frame.h / ih;
+      const scaleByWidth = frame.w / iw;
+      if (mode === 'height') target.scale = scaleByHeight;
+      if (mode === 'width') target.scale = scaleByWidth;
+      target.x = 0; target.y = 0;
+      applyTransforms();
+    }
+    fitBodyHeight.addEventListener('click', () => fitImage(bodyImg, state.body, 'height'));
+    fitBodyWidth.addEventListener('click', () => fitImage(bodyImg, state.body, 'width'));
+
+    fitFaceHeight.addEventListener('click', () => fitImage(faceImg, state.face, 'height'));
+    fitFaceWidth.addEventListener('click', () => {
+      if (!faceImg.naturalWidth || !faceImg.naturalHeight) return;
+      const { w, h } = getFrameSize();
+      const scale = w / faceImg.naturalWidth;
+      state.face.scale = scale;
+      state.face.x = 0;
+      state.face.y = - (h - faceImg.naturalHeight * scale) / 2;
+      applyTransforms();
+    });
+
+    // Underlay controls
+    const faceUnderlayColor = document.getElementById('faceUnderlayColor');
+    const underlayToggle = document.getElementById('underlayToggle');
+    function updateUnderlayVisibility() {
+      const on = !underlayToggle || underlayToggle.checked;
+      faceUnderlay.style.display = on && faceImg.style.display !== 'none' ? 'block' : 'none';
+    }
+    if (faceUnderlayColor) {
+      const applyUnderlayColor = () => {
+        faceUnderlay.style.backgroundColor = faceUnderlayColor.value;
+        refreshBakedUnderlay(); // Update baked image when color changes
+      };
+      faceUnderlayColor.addEventListener('input', applyUnderlayColor);
+      faceUnderlayColor.addEventListener('change', applyUnderlayColor);
+      applyUnderlayColor();
+    }
+    if (underlayToggle) {
+      underlayToggle.addEventListener('change', updateUnderlayVisibility);
+    }
+
+
+    function applyFaceMask(src){
+      faceUnderlay.style.webkitMaskImage = `url(${src})`;
+      faceUnderlay.style.maskImage = `url(${src})`;
+      faceUnderlay.style.webkitMaskSize = 'contain';
+      faceUnderlay.style.maskSize = 'contain';
+      faceUnderlay.style.webkitMaskRepeat = 'no-repeat';
+      faceUnderlay.style.maskRepeat = 'no-repeat';
+      faceUnderlay.style.webkitMaskPosition = 'center';
+      faceUnderlay.style.maskPosition = 'center';
+    }
+
+    // Fixed useFaceSrc function to prevent underlay offset issues
+    async function useFaceSrc(src) {
+      // 1) 顔画像を差し替え
+      faceImg.src = src;
+
+      // 2) 読み込み完了を待つ（decode が無い環境は load にフォールバック）
+      if ('decode' in faceImg) {
+        try {
+          await faceImg.decode();
+        } catch(e) {
+          // Fallback to load event if decode fails
+          await new Promise(res => {
+            if (faceImg.complete) return res();
+            const onload = () => { faceImg.removeEventListener('load', onload); res(); };
+            faceImg.addEventListener('load', onload);
+          });
+        }
+      } else {
+        await new Promise(res => {
+          if (faceImg.complete) return res();
+          const onload = () => { faceImg.removeEventListener('load', onload); res(); };
+          faceImg.addEventListener('load', onload);
+        });
+      }
+
+      // 3) 下地マスクを新ソースで再設定
+      applyFaceMask(src);
+
+      // 4) ★重要：下地要素サイズを新しい natural サイズに更新（ズレ対策）
+      faceUnderlay.style.width  = faceImg.naturalWidth  + 'px';
+      faceUnderlay.style.height = faceImg.naturalHeight + 'px';
+
+      // 5) baked も作り直し
+      await refreshBakedUnderlay();
+
+      // 6) 上端ピン留め（ズレ回避用）：force=true で再計算
+      initFaceTopIfPinned(true);
+
+      // 7) 反映
+      applyTransforms();
+    }
+
+    // 顔アップ専用アップロードのハンドラ
+    if (faceChooseBtn) {
+      let picking = false;
+      faceChooseBtn.addEventListener('click', () => {
+        if (picking) return;
+        picking = true;
+        faceFileInput.click();
+        setTimeout(()=> picking=false, 600);
+      });
+    }
+
+    if (faceFileInput) {
+      faceFileInput.addEventListener('change', () => {
+        const file = faceFileInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async e => {
+          imageSources.face = e.target.result;
+          await useFaceSrc(imageSources.face);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Background controls (keeping existing implementation)
+    const bgBase = document.getElementById('bgBase');
+    const bgImageLayer = document.getElementById('bgImageLayer');
+    const bgModeRadios = document.querySelectorAll('input[name="bgMode"]');
+    const bgSolidBlock = document.getElementById('bgSolidBlock');
+    const bgGradBlock = document.getElementById('bgGradBlock');
+    const bgImageBlock = document.getElementById('bgImageBlock');
+
+    const bgSolidColor = document.getElementById('bgSolidColor');
+    const bgGradC1 = document.getElementById('bgGradC1');
+    const bgGradC2 = document.getElementById('bgGradC2');
+    const bgGradAngle = document.getElementById('bgGradAngle');
+    const bgGradAngleLabel = document.getElementById('bgGradAngleLabel');
+
+    const bgImageInput = document.getElementById('bgImageInput');
+    const bgClearImage = document.getElementById('bgClearImage');
+
+    const bgScaleSlider = document.getElementById('bgScale');
+    const bgOpacitySlider = document.getElementById('bgOpacity');
+    const bgXSlider = document.getElementById('bgX');
+    const bgYSlider = document.getElementById('bgY');
+    const bgTileCheckbox = document.getElementById('bgTile');
+
+    // 追加参照
+    const bgTileUsePx = document.getElementById('bgTileUsePx');
+    const bgTilePxWrap = document.getElementById('bgTilePxWrap');
+    const bgTilePxBlock = document.getElementById('bgTilePxBlock');
+    const bgTilePx = document.getElementById('bgTilePx');
+    const bgTilePxLabel = document.getElementById('bgTilePxLabel');
+
+    const bgSizeLabel = document.getElementById('bgSizeLabel');
+    const bgOpacityLabel = document.getElementById('bgOpacityLabel');
+    const bgXLabel = document.getElementById('bgXLabel');
+    const bgYLabel = document.getElementById('bgYLabel');
+
+    let bgImageUrl = '';
+    let bgImageNatural = { w: 0, h: 0 }; // 背景画像の自然サイズ
+    let tileOn = false;
+    let bgScaleValue = 100;
+    let bgOpacityValue = 100;
+    let bgXValue = 0;
+    let bgYValue = 0;
+
+    // 追加状態
+    let bgTilePxValue = 64;   // px 指定時のタイル幅
+    let usePxForTile = false; // false=%, true=px
+
+    function setBgImageUrl(url) {
+      bgImageUrl = url || '';
+      if (!bgImageUrl) {
+        bgImageNatural = { w: 0, h: 0 };
+        return;
+      }
+
+      const probe = new Image();
+      probe.onload = () => {
+        bgImageNatural = { w: probe.naturalWidth, h: probe.naturalHeight };
+        applyBgStyles();
+      };
+      probe.src = bgImageUrl;
+    }
+
+    function applyBgOverscan() {
+      const mode = [...bgModeRadios].find(r => r.checked)?.value || 'solid';
+      const tileOn = bgTileCheckbox?.checked;
+      const angle = (state.bg?.angle || 0) % 360;
+
+      // ステージ要素（プレビュー要素）
+      const stage = document.getElementById('preview');
+      if (!stage) return;
+
+      const rect = stage.getBoundingClientRect();
+      const W = Math.max(1, Math.round(rect.width));
+      const H = Math.max(1, Math.round(rect.height));
+
+      const needOverscan = (mode === 'image') && tileOn && angle !== 0;
+
+      if (needOverscan) {
+        // ステージ対角線の長さを基準に少し余裕を持って拡張
+        const diag = Math.ceil(Math.hypot(W, H));
+        const overs = Math.ceil(diag * 1.12); // 12%マージン
+        bgImageLayer.style.width = overs + 'px';
+        bgImageLayer.style.height = overs + 'px';
+      } else {
+        bgImageLayer.style.width = '100%';
+        bgImageLayer.style.height = '100%';
+      }
+    }
+
+    function applyBgStyles() {
+      const mode = [...bgModeRadios].find(r => r.checked)?.value || 'solid';
+      if (mode === 'solid') {
+        const color = bgSolidColor.value;
+        bgBase.style.background = color;
+        bgBase.style.backgroundColor = color; // For export
+        bgImageLayer.style.transform = 'translate(-50%, -50%)'; // 中央基準維持
+        return;
+      } else if (mode === 'gradient') {
+        const gradient = `linear-gradient(${bgGradAngle.value}deg, ${bgGradC1.value}, ${bgGradC2.value})`;
+        bgBase.style.background = gradient;
+        bgBase.style.backgroundImage = gradient; // For export
+        bgImageLayer.style.transform = 'translate(-50%, -50%)'; // 中央基準維持
+        return;
+      } else {
+        bgBase.style.background = bgSolidColor.value;
+        bgBase.style.backgroundColor = bgSolidColor.value; // For export
+      }
+
+      if (mode !== 'image' || !bgImageUrl) {
+        bgImageLayer.style.backgroundImage = '';
+        bgImageLayer.style.opacity = '1';
+        bgImageLayer.style.transform = 'translate(-50%, -50%)';
+        return;
+      }
+
+      const tileOn = bgTileCheckbox?.checked;
+      const angle = state.bg?.angle || 0;
+      const xPx = bgXValue;
+      const yPx = bgYValue;
+      const scaleP = Math.max(1, bgScaleValue);
+
+      // 1) オーバースキャンを適用
+      applyBgOverscan();
+
+      // 2) タイル設定
+      bgImageLayer.style.backgroundImage = `url('${bgImageUrl}')`;
+      bgImageLayer.style.backgroundRepeat = tileOn ? 'repeat' : 'no-repeat';
+
+      // 3) タイルのスケール
+      if (tileOn) {
+        if (usePxForTile) {
+          // px 指定：超小タイルOK
+          const tilePx = Math.max(1, Math.round(bgTilePxValue));
+          bgImageLayer.style.backgroundSize = `${tilePx}px auto`;
+        } else if (bgImageNatural.w) {
+          // % 指定（最小1%まで可）
+          const tileW = Math.max(1, Math.round(bgImageNatural.w * (scaleP / 100)));
+          bgImageLayer.style.backgroundSize = `${tileW}px auto`;
+        } else {
+          // 画像自然幅が未知なら % 指定をそのまま使う
+          bgImageLayer.style.backgroundSize = `${scaleP}% auto`;
+        }
+      } else {
+        // 非タイリング時は従来通り
+        bgImageLayer.style.backgroundSize = `${scaleP}% auto`;
+      }
+
+      // 4) オフセットは中央基準のpx指定を維持
+      bgImageLayer.style.backgroundPosition = `calc(50% + ${xPx}px) calc(50% + ${yPx}px)`;
+      bgImageLayer.style.opacity = (bgOpacityValue/100).toString();
+
+      // 5) 回転は必ず中央基準で
+      bgImageLayer.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+      bgImageLayer.style.willChange = 'transform';
+    }
+
+    function updateBgUI() {
+      const mode = [...bgModeRadios].find(r => r.checked)?.value || 'solid';
+      bgSolidBlock.classList.toggle('hidden-block', mode !== 'solid');
+      bgGradBlock.classList.toggle('hidden-block', mode !== 'gradient');
+      bgImageBlock.classList.toggle('hidden-block', mode !== 'image');
+
+      // タイリングON時に px 指定UIの親を表示
+      const tilingOn = !!bgTileCheckbox?.checked;
+      if (bgTilePxWrap) bgTilePxWrap.classList.toggle('hidden', !(mode === 'image' && tilingOn));
+      if (bgTilePxBlock) bgTilePxBlock.classList.toggle('hidden', !(mode === 'image' && tilingOn && usePxForTile));
+
+      // %スライダをpx指定有効時のみ薄く無効風に
+      if (bgScaleSlider) {
+        const dim = (mode === 'image' && tilingOn && usePxForTile);
+        bgScaleSlider.disabled = dim;
+        bgScaleSlider.style.opacity = dim ? '0.45' : '1';
+      }
+
+      applyBgStyles();
+    }
+
+    bgModeRadios.forEach(r => r.addEventListener('change', updateBgUI));
+    [bgSolidColor, bgGradC1, bgGradC2, bgGradAngle].forEach(el => el.addEventListener('input', () => {
+      if (el === bgGradAngle) bgGradAngleLabel.textContent = `${bgGradAngle.value}°`;
+      updateBgUI();
+    }));
+
+    bgImageInput.addEventListener('change', () => {
+      const file = bgImageInput.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        setBgImageUrl(e.target.result); // 修正：setBgImageUrl()を使用
+        [...bgModeRadios].forEach(r => { r.checked = (r.value === 'image'); });
+        tileOn = false;
+        bgScaleValue = 100; bgOpacityValue = 100; bgXValue = 0; bgYValue = 0;
+        if (bgScaleSlider) bgScaleSlider.value = 100;
+        if (bgOpacitySlider) bgOpacitySlider.value = 100;
+        if (bgXSlider) bgXSlider.value = 0;
+        if (bgYSlider) bgYSlider.value = 0;
+        if (bgTileCheckbox) bgTileCheckbox.checked = false;
+        updateBgLabels();
+        updateBgUI();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    const bgChooseBtn = document.getElementById('bgChooseBgBtn');
+    if (bgChooseBtn) {
+      let openingBgPicker = false;
+      bgChooseBtn.addEventListener('click', () => {
+        if (openingBgPicker) return;
+        openingBgPicker = true;
+        bgImageInput.click();
+        setTimeout(()=> openingBgPicker=false, 600);
+      });
+    }
+
+    function updateBgLabels(){
+      if (bgSizeLabel) bgSizeLabel.textContent = `${Math.round(bgScaleValue)}%`;
+      if (bgOpacityLabel) bgOpacityLabel.textContent = `${Math.round(bgOpacityValue)}%`;
+      if (bgXLabel) bgXLabel.textContent = `${Math.round(bgXValue)}`;
+      if (bgYLabel) bgYLabel.textContent = `${Math.round(bgYValue)}`;
+      if (bgTilePxLabel) bgTilePxLabel.textContent = `${Math.round(bgTilePxValue)}px`;
+    }
+
+    if (bgScaleSlider) bgScaleSlider.addEventListener('input', () => { bgScaleValue = +bgScaleSlider.value; updateBgLabels(); applyBgStyles(); });
+    if (bgOpacitySlider) bgOpacitySlider.addEventListener('input', () => { bgOpacityValue = +bgOpacitySlider.value; updateBgLabels(); applyBgStyles(); });
+    if (bgXSlider) bgXSlider.addEventListener('input', () => { bgXValue = +bgXSlider.value; updateBgLabels(); applyBgStyles(); });
+    if (bgYSlider) bgYSlider.addEventListener('input', () => { bgYValue = +bgYSlider.value; updateBgLabels(); applyBgStyles(); });
+    if (bgTileCheckbox) bgTileCheckbox.addEventListener('change', () => { tileOn = bgTileCheckbox.checked; updateBgUI(); });
+
+    // px指定のイベント
+    if (bgTileUsePx) {
+      bgTileUsePx.addEventListener('change', () => {
+        usePxForTile = !!bgTileUsePx.checked;
+        updateBgUI();
+      });
+    }
+    if (bgTilePx) {
+      bgTilePx.addEventListener('input', () => {
+        bgTilePxValue = Math.max(2, +bgTilePx.value || 2);
+        if (bgTilePxLabel) bgTilePxLabel.textContent = `${bgTilePxValue}px`;
+        applyBgStyles();
+      });
+    }
+
+    if (bgImgAngle) bgImgAngle.addEventListener('input', () => {
+      state.bg.angle = +bgImgAngle.value || 0;
+      if (bgImgAngleLabel) bgImgAngleLabel.textContent = `${state.bg.angle}°`;
+      applyBgStyles();
+    });
+
+    // スタンプ機能
+    function on(el, ev, fn) { if (el) el.addEventListener(ev, fn); }
+
+    on(stampChooseBtn, 'click', () => stampFileInput?.click());
+
+    on(stampFileInput, 'change', () => {
+      const file = stampFileInput.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        state.stamp.src = e.target.result;
+        stampImage.src = state.stamp.src;
+        stampImage.style.display = (state.stamp.visible !== false) ? 'block' : 'none';
+        applyTransforms();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    on(stampClearBtn, 'click', () => {
+      state.stamp.src = '';
+      stampImage.removeAttribute('src');
+      stampImage.style.display = 'none';
+    });
+
+    on(stampVisible, 'change', () => {
+      state.stamp.visible = !!stampVisible.checked;
+      stampImage.style.display = (state.stamp.visible && state.stamp.src) ? 'block' : 'none';
+    });
+
+    on(stampX, 'input', () => {
+      state.stamp.x = +stampX.value || 0;
+      stampXLabel.textContent = state.stamp.x;
+      applyTransforms();
+    });
+    on(stampY, 'input', () => {
+      state.stamp.y = +stampY.value || 0;
+      stampYLabel.textContent = state.stamp.y;
+      applyTransforms();
+    });
+
+    on(stampScale, 'input', () => {
+      state.stamp.scale = (+stampScale.value || 100) / 100;
+      stampScaleLabel.textContent = Math.round(state.stamp.scale * 100) + '%';
+      applyTransforms();
+    });
+
+    on(stampAngle, 'input', () => {
+      state.stamp.angle = +stampAngle.value || 0;
+      stampAngleLabel.textContent = state.stamp.angle + '°';
+      applyTransforms();
+    });
+
+    on(stampOpacity, 'input', () => {
+      state.stamp.opacity = (+stampOpacity.value || 100) / 100;
+      stampOpacityLabel.textContent = Math.round(state.stamp.opacity * 100) + '%';
+      applyTransforms();
+    });
+
+    on(stampResetBtn, 'click', () => {
+      Object.assign(state.stamp, { x: 0, y: 0, angle: 0, scale: 1 });
+      stampX.value = 0; stampY.value = 0; stampAngle.value = 0; stampScale.value = 100;
+      stampXLabel.textContent = '0';
+      stampYLabel.textContent = '0';
+      stampAngleLabel.textContent = '0°';
+      stampScaleLabel.textContent = '100%';
+      applyTransforms();
+    });
+
+    bgClearImage.addEventListener('click', () => {
+      setBgImageUrl(''); // 修正：setBgImageUrl()を使用してクリア
+      applyBgStyles();
+      updateBgUI();
+    });
+
+    // ローディングオーバーレイのヘルパー関数
+    const overlay = document.getElementById('loadingOverlay');
+
+    function showLoading(msg = '処理中です…') {
+      if (!overlay) return Promise.resolve();
+      const label = overlay.querySelector('.loading-text');
+      if (label) label.textContent = `⏳ ${msg}`;
+      overlay.style.display = 'flex';
+      // 次のフレームで描画を確定してから重い処理へ
+      return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+
+    function hideLoading() {
+      if (!overlay) return;
+      overlay.style.display = 'none';
+    }
+
+    // スライダー調整の共通関数（添付ツールと同じ挙動）
+    function adjustSlider(sliderId, delta) {
+      const slider = document.getElementById(sliderId);
+      if (!slider) return;
+
+      const currentValue = parseFloat(slider.value);
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      const step = parseFloat(slider.step) || 1;
+
+      let newValue = currentValue + delta;
+      // ステップに丸め
+      newValue = Math.round(newValue / step) * step;
+      // 範囲にクリップ
+      newValue = Math.max(min, Math.min(max, newValue));
+      // 小数ステップの桁調整
+      if (step < 1) {
+        const decimals = step.toString().split('.')[1]?.length || 0;
+        newValue = parseFloat(newValue.toFixed(decimals));
+      }
+      slider.value = newValue;
+
+      // 既存の oninput ロジックを発火
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    [...bgModeRadios].forEach(r => { r.checked = (r.value === 'solid'); });
+    bgSolidColor.value = '#dcdcdc';
+    updateBgUI();
+
+    // Download as PNG with proper underlay opacity handling
+    downloadBtn.addEventListener('click', async () => {
+      // 二重実行防止
+      downloadBtn.disabled = true;
+
+      try {
+        await showLoading('画像を書き出しています…');
+
+        const TARGET_W = 1200;
+        const TARGET_H = 675;
+
+        const node = document.getElementById('preview');
+        const wasOverlay = emptyOverlay.style.display !== 'none';
+        if (wasOverlay) emptyOverlay.style.display = 'none';
+
+        const rect = node.getBoundingClientRect();
+        const w = Math.round(rect.width);
+        const h = Math.round(rect.height);
+        // 16:9のプレビュー枠を、常に1200×675で書き出すための倍率
+        const scaleX = TARGET_W / w;
+        const scaleY = TARGET_H / h;
+        const scale = Math.min(scaleX, scaleY); // 念のため最小値
+        node.style.width = w + 'px';
+        node.style.height = h + 'px';
+
+        // Temporarily apply background styles for export
+        const bgBase = document.getElementById('bgBase');
+        const originalStyle = bgBase.style.cssText;
+
+        const bgMode = [...document.querySelectorAll('input[name="bgMode"]')].find(r => r.checked)?.value || 'solid';
+        if (bgMode === 'solid') {
+          const color = document.getElementById('bgSolidColor').value;
+          bgBase.style.cssText = `background: ${color} !important; background-color: ${color} !important;`;
+        } else if (bgMode === 'gradient') {
+          const c1 = document.getElementById('bgGradC1').value;
+          const c2 = document.getElementById('bgGradC2').value;
+          const angle = document.getElementById('bgGradAngle').value;
+          const gradient = `linear-gradient(${angle}deg, ${c1}, ${c2})`;
+          bgBase.style.cssText = `background: ${gradient} !important; background-image: ${gradient} !important;`;
+        }
+
+        // Store current visibility states
+        const maskWasVisible = faceUnderlay.style.display !== 'none';
+        const bakedWasVisible = faceUnderlayBaked.style.display !== 'none';
+
+        // Switch from CSS mask to baked image for export
+        faceUnderlay.style.display = 'none';
+        if (faceImg.style.display !== 'none' && (!underlayToggle || underlayToggle.checked)) {
+          faceUnderlayBaked.style.display = 'block';
+        }
+
+        // レンダリング段階表示
+        if (overlay && overlay.querySelector('.loading-text')) {
+          overlay.querySelector('.loading-text').textContent = '🧪 レンダリング中…';
+        }
+
+        const canvas = await html2canvas(node, {
+          backgroundColor: null,
+          scale,                // ← ターゲット基準の倍率
+          useCORS: true,
+          allowTaint: true,
+          width: w,
+          height: h,
+          foreignObjectRendering: false,
+          imageTimeout: 0,
+          logging: false
+        });
+
+        // 最終処理段階表示
+        if (overlay && overlay.querySelector('.loading-text')) {
+          overlay.querySelector('.loading-text').textContent = '📦 最終処理中…';
+        }
+
+        // 仕上げのリサイズ（必要時のみ）
+        let outCanvas = canvas;
+        if (canvas.width !== TARGET_W || canvas.height !== TARGET_H) {
+          const c2 = document.createElement('canvas');
+          c2.width = TARGET_W; c2.height = TARGET_H;
+          const ctx2 = c2.getContext('2d');
+          ctx2.imageSmoothingQuality = 'high';
+          ctx2.drawImage(canvas, 0, 0, TARGET_W, TARGET_H);
+          outCanvas = c2;
+        }
+
+        const download = (blobUrl) => {
+          const link = document.createElement('a');
+          link.download = 'display-design_1200x675.png';
+          link.href = blobUrl;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        };
+
+        if (outCanvas.toBlob) {
+          outCanvas.toBlob((blob) => {
+            if (!blob) { download(outCanvas.toDataURL('image/png')); return; }
+            const url = URL.createObjectURL(blob);
+            download(url);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+          }, 'image/png');
+        } else {
+          download(outCanvas.toDataURL('image/png'));
+        }
+
+        // Restore original styles and visibility
+        bgBase.style.cssText = originalStyle;
+        faceUnderlay.style.display = maskWasVisible ? '' : 'none';
+        faceUnderlayBaked.style.display = bakedWasVisible ? 'block' : 'none';
+        node.style.width = '';
+        node.style.height = '';
+        if (wasOverlay) emptyOverlay.style.display = '';
+
+      } catch (e) {
+        console.error('出力エラー:', e);
+        alert('❌ 書き出し中にエラーが発生しました。サイズや設定を見直してください。');
+      } finally {
+        downloadBtn.disabled = false;
+        hideLoading();
+      }
+    });
+
+    // Initial state
+    function onImagesReady(fn) {
+      const imgs = [bodyImg, faceImg].filter(img => img.src);
+      if (imgs.length === 0) return fn();
+      let loaded = 0;
+      imgs.forEach(img => {
+        if (img.complete) { if (++loaded === imgs.length) fn(); }
+        else img.onload = () => { if (++loaded === imgs.length) fn(); };
+      });
+    }
+    function initialRun() {
+      resetTransforms();
+      [...bgModeRadios].forEach(r => { r.checked = (r.value === 'solid'); });
+      bgSolidColor.value = '#dcdcdc';
+      setBgImageUrl(''); // 修正：setBgImageUrl()を使用
+      tileOn = false; bgScaleValue = 100; bgOpacityValue = 100; bgXValue = 0; bgYValue = 0;
+      usePxForTile = false;
+      bgTilePxValue = 64;
+      if (bgScaleSlider) bgScaleSlider.value = 100;
+      if (bgOpacitySlider) bgOpacitySlider.value = 100;
+      if (bgXSlider) bgXSlider.value = 0;
+      if (bgYSlider) bgYSlider.value = 0;
+      if (bgTileCheckbox) bgTileCheckbox.checked = false;
+      if (bgImgAngle) bgImgAngle.value = 0;
+      if (bgTileUsePx) bgTileUsePx.checked = false;
+      if (bgTilePx) bgTilePx.value = 64;
+      if (bgTilePxLabel) bgTilePxLabel.textContent = '64px';
+      // 画像ソースも初期化
+      imageSources.body = '';
+      imageSources.face = '';
+      state.bg.angle = 0;
+      // スタンプ初期化
+      Object.assign(state.stamp, { x: 0, y: 0, angle: 0, scale: 1, opacity: 1, visible: true });
+      if (stampX) stampX.value = 0;
+      if (stampY) stampY.value = 0;
+      if (stampAngle) stampAngle.value = 0;
+      if (stampScale) stampScale.value = 100;
+      if (stampOpacity) stampOpacity.value = 100;
+      if (stampXLabel) stampXLabel.textContent = '0';
+      if (stampYLabel) stampYLabel.textContent = '0';
+      if (stampAngleLabel) stampAngleLabel.textContent = '0°';
+      if (stampScaleLabel) stampScaleLabel.textContent = '100%';
+      if (stampOpacityLabel) stampOpacityLabel.textContent = '100%';
+      if (!state.stamp.src && stampImage) stampImage.style.display = 'none';
+      updateBgLabels();
+      applyBgStyles();
+      updateBgUI();
+      onImagesReady(() => initPositions());
+    }
+
+// ページ表示直後はロックして案内のみ表示
+lockUI(true);
+
+    initialRun();
+  </script>
+
+  <footer style="text-align: center; padding: 40px 24px; color: #64748b; margin-top: 5px;">
+    <div style="font-size: 0.75rem; line-height: 1.5; max-width: 800px; margin: 0 auto; color: #94a3b8; margin-bottom: 30px;">
+      <p style="margin-bottom: 8px;">⚠ 処理された画像の著作権は原則として元の画像の権利者に帰属します ⚠</p>
+      <p style="margin-bottom: 8px;">⚠ 本ツールを使用して生成されたデータの利用については、利用者の責任において行ってください ⚠</p>
+      <p style="margin-bottom: 8px;">⚠ 本ツール自体およびそのコード・構造・UI等の権利は当方に帰属します ⚠</p>
+      <p style="margin-bottom: 8px;">⚠ 本ツールは予告なく内容の変更または提供の中止を行うことがあります ⚠</p>
+      <p style="margin-bottom: 0;">⚠ アップロードされたファイルや出力されたファイルに起因するいかなる損害やトラブルについても、当方は責任を負いかねます ⚠</p>
+    </div>
+
+    <div style="width: 120px; height: 1px; background: linear-gradient(90deg, transparent, #e2e8f0, transparent); margin: 0 auto 30px auto;"></div>
+
+    <div style="font-size: 1rem; font-weight: 600; color: #64748b;">
+      @aeae_trpg
+    </div>
+  </footer>
+</body>
+</html>
