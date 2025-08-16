@@ -1062,6 +1062,63 @@
   <script>
     let currentAspectRatio = '16:9';
 
+    /**
+     * ★★★ 新しく追加した高画質縮小関数 ★★★
+     * 高画質な縮小画像を生成します
+     * @param {HTMLImageElement} img 元画像
+     * @param {number} targetHeight 目標の高さ
+     * @returns {string} 縮小された画像のデータURL
+     */
+    function downscaleImage(img, targetHeight) {
+      const originalWidth = img.naturalWidth;
+      const originalHeight = img.naturalHeight;
+
+      if (originalHeight <= targetHeight) {
+        return img.src; // 縮小の必要がなければ元の画像を返す
+      }
+
+      // 目標の高さに合わせて幅を計算
+      const targetWidth = originalWidth * (targetHeight / originalHeight);
+
+      // 描画用のcanvasを作成
+      let canvas = document.createElement('canvas');
+      let ctx = canvas.getContext('2d');
+
+      // まず元画像をcanvasに描画
+      canvas.width = originalWidth;
+      canvas.height = originalHeight;
+      ctx.drawImage(img, 0, 0);
+
+      let currentWidth = originalWidth;
+      let currentHeight = originalHeight;
+
+      // 目標サイズに近づくまで、段階的に半分に縮小を繰り返す（高画質化のキーポイント）
+      while (currentHeight / 2 > targetHeight) {
+        currentWidth /= 2;
+        currentHeight /= 2;
+
+        let tempCanvas = document.createElement('canvas');
+        let tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = currentWidth;
+        tempCanvas.height = currentHeight;
+        tempCtx.imageSmoothingQuality = 'high';
+        tempCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, currentWidth, currentHeight);
+
+        canvas = tempCanvas;
+      }
+
+      // 最後に目標のサイズへ正確にリサイズ
+      let finalCanvas = document.createElement('canvas');
+      finalCanvas.width = targetWidth;
+      finalCanvas.height = targetHeight;
+      let finalCtx = finalCanvas.getContext('2d');
+      finalCtx.imageSmoothingQuality = 'high';
+      finalCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, targetWidth, targetHeight);
+
+      return finalCanvas.toDataURL('image/png');
+    }
+
+
     document.addEventListener('DOMContentLoaded', () => {
       const charPanel = document.getElementById('subpanel-character');
       const charBlocks = document.querySelectorAll('.subpanel-character-contents');
@@ -1310,32 +1367,44 @@
       if (file?.type.startsWith('image/')) loadImageFile(file);
     });
 
+    /**
+     * ★★★ 修正済みの loadImageFile 関数 ★★★
+     */
     function loadImageFile(file) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const src = ev.target.result;
-        imageSources.body = src;
-        imageSources.face = src;
+        const originalSrc = ev.target.result;
 
-        let loaded = 0;
-        const onReady = () => {
-          if (++loaded < 2) return;
-          bodyImg.style.display = 'block';
-          faceImg.style.display = 'block';
-          lockUI(false);
-          faceUnderlay.style.backgroundColor = document.getElementById('faceUnderlayColor')?.value || '#FFFFFF';
-          updateUnderlayVisibility();
-          applyFaceMask(src);
-          faceUnderlay.style.width = faceImg.naturalWidth + 'px';
-          faceUnderlay.style.height = faceImg.naturalHeight + 'px';
-          emptyOverlay.style.display = 'none';
-          initPositions();
-          refreshBakedUnderlay();
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          // 全身像を、あらかじめ高画質な状態で高さ1200pxに縮小しておく
+          // これでブラウザの粗い縮小処理を回避する
+          const highQualityBodySrc = downscaleImage(tempImg, 1200);
+
+          imageSources.body = highQualityBodySrc;
+          imageSources.face = originalSrc; // 顔アップは元の高解像度画像を使用
+
+          let loaded = 0;
+          const onReady = () => {
+            if (++loaded < 2) return;
+            bodyImg.style.display = 'block';
+            faceImg.style.display = 'block';
+            lockUI(false);
+            faceUnderlay.style.backgroundColor = document.getElementById('faceUnderlayColor')?.value || '#FFFFFF';
+            updateUnderlayVisibility();
+            applyFaceMask(originalSrc); // マスクには元の画像を使用
+            faceUnderlay.style.width = faceImg.naturalWidth + 'px';
+            faceUnderlay.style.height = faceImg.naturalHeight + 'px';
+            emptyOverlay.style.display = 'none';
+            initPositions();
+            refreshBakedUnderlay();
+          };
+          bodyImg.onload = onReady;
+          faceImg.onload = onReady;
+          bodyImg.src = highQualityBodySrc; // プレビューには高画質版を表示
+          faceImg.src = originalSrc;
         };
-        bodyImg.onload = onReady;
-        faceImg.onload = onReady;
-        bodyImg.src = src;
-        faceImg.src = src;
+        tempImg.src = originalSrc;
       };
       reader.readAsDataURL(file);
     }
