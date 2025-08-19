@@ -433,12 +433,11 @@
 
     #bgImageLayer {
       position: absolute;
-      top: 50%;
-      left: 50%;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
-      transform: translate(-50%, -50%);
-      transform-origin: 50% 50%;
+      transform-origin: center center;
       background-repeat: no-repeat;
     }
 
@@ -1564,37 +1563,28 @@
       ['webkitMaskPosition', 'maskPosition'].forEach(p => faceUnderlay.style[p] = 'center');
     }
 
-// ↓↓↓↓ この関数全体を置き換えてください ↓↓↓↓
-async function useFaceSrc(src) {
-  // 古いonloadイベントハンドラを解除し、initPositionsが意図せず呼ばれるのを防ぎます
-  faceImg.onload = null;
-
-  // 新しいソースを設定し、読み込み完了を待ちます
-  faceImg.src = src;
-  try {
-    // 'decode' は画像が完全にデコードされるのを待つモダンな方法です
-    if ('decode' in faceImg) {
-      await faceImg.decode();
-    } else {
-      // decode非対応ブラウザのためのフォールバックです
-      await new Promise((resolve, reject) => {
-        faceImg.onload = resolve;
-        faceImg.onerror = reject;
-      });
+    async function useFaceSrc(src) {
+      faceImg.onload = null;
+      faceImg.src = src;
+      try {
+        if ('decode' in faceImg) {
+          await faceImg.decode();
+        } else {
+          await new Promise((resolve, reject) => {
+            faceImg.onload = resolve;
+            faceImg.onerror = reject;
+          });
+        }
+      } catch (e) {
+        console.error("顔画像の読み込みに失敗しました:", e);
+      }
+      applyFaceMask(src);
+      faceUnderlay.style.width = `${faceImg.naturalWidth}px`;
+      faceUnderlay.style.height = `${faceImg.naturalHeight}px`;
+      await refreshBakedUnderlay();
+      initFaceTopIfPinned(true);
+      applyTransforms();
     }
-  } catch (e) {
-    console.error("顔画像の読み込みに失敗しました:", e);
-  }
-  
-  // 読み込み完了後に、顔画像に関連する処理のみを実行します
-  applyFaceMask(src);
-  faceUnderlay.style.width = `${faceImg.naturalWidth}px`;
-  faceUnderlay.style.height = `${faceImg.naturalHeight}px`;
-  await refreshBakedUnderlay();
-  initFaceTopIfPinned(true); // 顔の位置を調整
-  applyTransforms(); // 現在の状態を再適用
-}
-// ↑↑↑↑ この関数全体を置き換えてください ↑↑↑↑
 
     if (faceChooseBtn) faceChooseBtn.addEventListener('click', () => faceFileInput.click());
     if (faceFileInput) faceFileInput.addEventListener('change', () => {
@@ -1653,22 +1643,28 @@ async function useFaceSrc(src) {
       if (!stage) return;
       const rect = stage.getBoundingClientRect();
       const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
-      const needOverscan = (mode === 'image') && tileOn && angle !== 0;
+      const needOverscan = (mode === 'image') && !tileOn && angle !== 0; // Tiling does not need overscan
       if (needOverscan) {
         const diag = Math.ceil(Math.hypot(W, H));
-        bgImageLayer.style.width = `${Math.ceil(diag * 1.12)}px`;
-        bgImageLayer.style.height = `${Math.ceil(diag * 1.12)}px`;
+        bgImageLayer.style.width = `${diag}px`;
+        bgImageLayer.style.height = `${diag}px`;
       } else {
         bgImageLayer.style.width = '100%';
         bgImageLayer.style.height = '100%';
       }
     }
-
-    // ★★★ 修正済み applyBgStyles 関数 ★★★
+    
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ★★★★★★★  最終修正箇所: applyBgStyles  ★★★★★★★
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     function applyBgStyles() {
         const mode = [...bgModeRadios].find(r => r.checked)?.value || 'solid';
-        bgImageLayer.style.backgroundImage = '';
-        bgImageLayer.style.opacity = '1';
+        bgImageLayer.style.cssText = ''; // Reset inline styles
+        bgImageLayer.style.position = 'absolute';
+        bgImageLayer.style.top = '0';
+        bgImageLayer.style.left = '0';
+        bgImageLayer.style.width = '100%';
+        bgImageLayer.style.height = '100%';
 
         if (mode === 'solid') {
             const color = bgSolidColor.value;
@@ -1679,19 +1675,22 @@ async function useFaceSrc(src) {
             bgBase.style.background = gradient;
             bgBase.style.backgroundImage = gradient;
         } else {
+            // Always set a base color in case the image is transparent
             bgBase.style.background = bgSolidColor.value;
             bgBase.style.backgroundColor = bgSolidColor.value;
         }
 
         if (mode === 'image' && bgImageUrl) {
+            applyBgOverscan();
             const tileOn = bgTileCheckbox?.checked;
             const angle = state.bg?.angle || 0;
             const xPx = bgXValue;
             const yPx = bgYValue;
             const scaleP = Math.max(1, bgScaleValue);
-            applyBgOverscan();
+            
             bgImageLayer.style.backgroundImage = `url('${bgImageUrl}')`;
             bgImageLayer.style.backgroundRepeat = tileOn ? 'repeat' : 'no-repeat';
+            
             if (tileOn) {
                 if (usePxForTile) {
                     bgImageLayer.style.backgroundSize = `${Math.max(1, Math.round(bgTilePxValue))}px auto`;
@@ -1701,12 +1700,15 @@ async function useFaceSrc(src) {
                     bgImageLayer.style.backgroundSize = `${scaleP}% auto`;
                 }
             } else {
-                bgImageLayer.style.backgroundSize = `${scaleP}% auto`;
+                bgImageLayer.style.backgroundSize = `${scaleP}%`;
             }
-            bgImageLayer.style.backgroundPosition = `calc(50% + ${xPx}px) calc(50% + ${yPx}px)`;
+
+            // ★★★ 修正の核心部 ★★★
+            // background-position は使わず、transform の translate で位置を制御する
+            bgImageLayer.style.backgroundPosition = `center center`;
+            bgImageLayer.style.transform = `translate(${xPx}px, ${yPx}px) rotate(${angle}deg)`;
+            bgImageLayer.style.transformOrigin = 'center center'; // 中央を基点に回転
             bgImageLayer.style.opacity = (bgOpacityValue/100).toString();
-            bgImageLayer.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
-            bgImageLayer.style.willChange = 'transform';
         }
     }
 
@@ -1795,8 +1797,14 @@ async function useFaceSrc(src) {
     bgSolidColor.value = '#dcdcdc';
     updateBgUI();
 
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ★★★★★★★ 最終修正箇所: downloadBtn ★★★★★★★
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     downloadBtn.addEventListener('click', async () => {
       downloadBtn.disabled = true;
+      const imageLayer = document.getElementById('bgImageLayer');
+      const originalImageLayerStyleDisplay = imageLayer ? imageLayer.style.display : '';
+
       try {
         await showLoading('画像を書き出しています…');
         let TARGET_W, TARGET_H, filename;
@@ -1812,30 +1820,109 @@ async function useFaceSrc(src) {
         const w = Math.round(rect.width), h = Math.round(rect.height);
         const scale = TARGET_W / w;
         node.style.width = `${w}px`; node.style.height = `${h}px`;
+        
         const bgBase = document.getElementById('bgBase');
         const originalStyle = bgBase.style.cssText;
         const bgMode = [...document.querySelectorAll('input[name="bgMode"]')].find(r => r.checked)?.value || 'solid';
-        if (bgMode === 'solid') { const c = document.getElementById('bgSolidColor').value; bgBase.style.cssText = `background:${c}!important;background-color:${c}!important;`; }
-        else if (bgMode === 'gradient') { const g = `linear-gradient(${document.getElementById('bgGradAngle').value}deg, ${document.getElementById('bgGradC1').value}, ${document.getElementById('bgGradC2').value})`; bgBase.style.cssText = `background:${g}!important;background-image:${g}!important;`; }
+
+        bgBase.style.cssText = '';
+
+        if (bgMode === 'solid') {
+          const c = document.getElementById('bgSolidColor').value;
+          bgBase.style.cssText = `background-color:${c}!important;`;
+        } else if (bgMode === 'gradient') {
+          const g = `linear-gradient(${document.getElementById('bgGradAngle').value}deg, ${document.getElementById('bgGradC1').value}, ${document.getElementById('bgGradC2').value})`;
+          bgBase.style.cssText = `background-image:${g}!important;`;
+        } else if (bgMode === 'image') {
+          if (imageLayer) imageLayer.style.display = 'none';
+          
+          const styles = getComputedStyle(imageLayer);
+          const baseColor = document.getElementById('bgSolidColor').value;
+          
+          // Use the raw style values from the imageLayer for transform
+          const transformString = imageLayer.style.transform;
+
+          bgBase.style.cssText = `
+            position: absolute !important;
+            inset: 0 !important;
+            background-color: ${baseColor} !important;
+            background-image: ${styles.backgroundImage} !important;
+            background-repeat: ${styles.backgroundRepeat} !important;
+            background-size: ${styles.backgroundSize} !important;
+            background-position: ${styles.backgroundPosition} !important;
+            opacity: ${styles.opacity} !important;
+            transform: ${transformString} !important;
+            transform-origin: ${styles.transformOrigin} !important;
+            width: ${styles.width} !important;
+            height: ${styles.height} !important;
+          `;
+        }
+        
         const maskWasVisible = faceUnderlay.style.display !== 'none';
         const bakedWasVisible = faceUnderlayBaked.style.display !== 'none';
         faceUnderlay.style.display = 'none';
         if (faceImg.style.display !== 'none' && (!underlayToggle || underlayToggle.checked)) { faceUnderlayBaked.style.display = 'block'; }
+        
         if (overlay?.querySelector('.loading-text')) overlay.querySelector('.loading-text').textContent = '🧪 レンダリング中…';
         const canvas = await html2canvas(node, { backgroundColor: null, scale, useCORS: true, allowTaint: true, width: w, height: h, imageTimeout: 0, logging: false });
+        
         if (overlay?.querySelector('.loading-text')) overlay.querySelector('.loading-text').textContent = '📦 最終処理中…';
         let outCanvas = canvas;
-        if (canvas.width !== TARGET_W || canvas.height !== TARGET_H) { const c2 = document.createElement('canvas'); c2.width = TARGET_W; c2.height = TARGET_H; const ctx2 = c2.getContext('2d'); ctx2.imageSmoothingQuality = 'high'; ctx2.drawImage(canvas, 0, 0, TARGET_W, TARGET_H); outCanvas = c2; }
-        const download = (blobUrl) => { const link = document.createElement('a'); link.download = filename; link.href = blobUrl; document.body.appendChild(link); link.click(); link.remove(); };
-        if (outCanvas.toBlob) { outCanvas.toBlob((blob) => { if (!blob) { download(outCanvas.toDataURL('image/png')); return; } const url = URL.createObjectURL(blob); download(url); setTimeout(() => URL.revokeObjectURL(url), 2000); }, 'image/png'); }
-        else { download(outCanvas.toDataURL('image/png')); }
-        bgBase.style.cssText = originalStyle;
-        faceUnderlay.style.display = maskWasVisible ? '' : 'none';
-        faceUnderlayBaked.style.display = bakedWasVisible ? 'block' : 'none';
-        node.style.width = ''; node.style.height = '';
+        if (canvas.width !== TARGET_W || canvas.height !== TARGET_H) {
+            const c2 = document.createElement('canvas');
+            c2.width = TARGET_W;
+            c2.height = TARGET_H;
+            const ctx2 = c2.getContext('2d');
+            ctx2.imageSmoothingQuality = 'high';
+            ctx2.drawImage(canvas, 0, 0, TARGET_W, TARGET_H);
+            outCanvas = c2;
+        }
+        const download = (blobUrl) => {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = blobUrl;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        };
+        if (outCanvas.toBlob) {
+            outCanvas.toBlob((blob) => {
+                if (!blob) { download(outCanvas.toDataURL('image/png')); return; }
+                const url = URL.createObjectURL(blob);
+                download(url);
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+            }, 'image/png');
+        } else {
+            download(outCanvas.toDataURL('image/png'));
+        }
+      } catch (e) {
+        console.error('出力エラー:', e);
+        alert('❌ 書き出し中にエラーが発生しました。サイズや設定を見直してください。');
+      } finally {
+        // Restore all temporary styles
+        const bgBase = document.getElementById('bgBase');
+        if (bgBase) bgBase.style.cssText = '';
+        applyBgStyles();
+
+        if (imageLayer) imageLayer.style.display = originalImageLayerStyleDisplay;
+        
+        const node = document.getElementById('preview');
+        if(node) {
+          node.style.width = '';
+          node.style.height = '';
+        }
+        
+        const wasOverlay = emptyOverlay.style.display !== 'none' && emptyOverlay.dataset.wasVisible === 'true';
         if (wasOverlay) emptyOverlay.style.display = '';
-      } catch (e) { console.error('出力エラー:', e); alert('❌ 書き出し中にエラーが発生しました。サイズや設定を見直してください。'); }
-      finally { downloadBtn.disabled = false; hideLoading(); }
+
+        const faceUnderlay = document.getElementById('faceUnderlay');
+        const faceUnderlayBaked = document.getElementById('faceUnderlayBaked');
+        if(faceUnderlay) faceUnderlay.style.display = faceUnderlay.dataset.wasVisible === 'true' ? '' : 'none';
+        if(faceUnderlayBaked) faceUnderlayBaked.style.display = faceUnderlayBaked.dataset.wasVisible === 'true' ? 'block' : 'none';
+
+        downloadBtn.disabled = false;
+        hideLoading();
+      }
     });
 
     const ratioButtons = document.querySelectorAll('.ratio-btn');
@@ -1849,7 +1936,7 @@ async function useFaceSrc(src) {
         if (newRatio === '16:9') previewWrapper.classList.add('ratio-16-9');
         else if (newRatio === '8:9') previewWrapper.classList.add('ratio-8-9');
         else if (newRatio === '1:1') previewWrapper.classList.add('ratio-1-1');
-        setTimeout(() => { initPositions(); }, 300);
+        setTimeout(() => { onImagesReady(initPositions); }, 300);
       });
     });
 
@@ -1859,6 +1946,7 @@ async function useFaceSrc(src) {
         let loaded = 0;
         imgs.forEach(img => {
             img.onload = () => { if (++loaded === imgs.length) fn(); };
+            img.onerror = () => { if (++loaded === imgs.length) fn(); };
         });
     }
 
@@ -1926,6 +2014,16 @@ async function useFaceSrc(src) {
               <br>
               Licensed under the MIT License. (<a href="https://github.com/niklasvh/html2canvas" target="_blank" rel="noopener noreferrer" style="color: #94a3b8;">Project</a>)
             </li>
+            <li style="margin-bottom: 8px; border-top: 1px solid rgba(128,128,128,0.2); padding-top: 8px;">
+              <strong>Shippori Mincho</strong> - (c) FONTDASU
+              <br>
+              Licensed under the SIL Open Font License 1.1. (<a href="https://fonts.google.com/specimen/Shippori+Mincho" target="_blank" rel="noopener noreferrer" style="color: #94a3b8;">Project</a>)
+            </li>
+            <li style="margin-bottom: 8px;">
+              <strong>Noto Sans JP</strong> - (c) Google Inc.
+              <br>
+              Licensed under the SIL Open Font License 1.1. (<a href="https://fonts.google.com/specimen/Noto+Sans+JP" target="_blank" rel="noopener noreferrer" style="color: #94a3b8;">Project</a>)
+            </li>
           </ul>
         </div>
       </details>
@@ -1937,5 +2035,3 @@ async function useFaceSrc(src) {
   </footer>
 </body>
 </html>
-
-
