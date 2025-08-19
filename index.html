@@ -1117,6 +1117,44 @@
       return finalCanvas.toDataURL('image/png');
     }
 
+    /**
+     * ★★★ 影を画像に焼き付けるための新関数 ★★★
+     * @param {HTMLImageElement} imgElement - 影を適用したい画像要素
+     * @returns {Promise<string>} 影が焼き付けられた画像のデータURL
+     */
+    async function applyDropShadowToImage(imgElement) {
+        return new Promise((resolve, reject) => {
+            const style = getComputedStyle(imgElement);
+            const filter = style.getPropertyValue('filter');
+
+            if (!filter || filter === 'none' || !filter.includes('drop-shadow')) {
+                resolve(imgElement.src);
+                return;
+            }
+
+            const tempImg = new Image();
+            tempImg.crossOrigin = "anonymous";
+            tempImg.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const padding = 100;
+                canvas.width = tempImg.naturalWidth + padding * 2;
+                canvas.height = tempImg.naturalHeight + padding * 2;
+                
+                ctx.filter = filter;
+                ctx.drawImage(tempImg, padding, padding);
+                
+                resolve(canvas.toDataURL('image/png'));
+            };
+            tempImg.onerror = () => {
+                console.warn("Could not load image to apply shadow, possibly due to CORS. Returning original image.");
+                resolve(imgElement.src);
+            };
+            tempImg.src = imgElement.src;
+        });
+    }
+
 
     document.addEventListener('DOMContentLoaded', () => {
       const charPanel = document.getElementById('subpanel-character');
@@ -1637,13 +1675,12 @@
 
     function applyBgOverscan() {
       const mode = [...bgModeRadios].find(r => r.checked)?.value || 'solid';
-      const tileOn = bgTileCheckbox?.checked;
       const angle = (state.bg?.angle || 0) % 360;
       const stage = document.getElementById('preview');
       if (!stage) return;
       const rect = stage.getBoundingClientRect();
       const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
-      const needOverscan = (mode === 'image') && !tileOn && angle !== 0; // Tiling does not need overscan
+      const needOverscan = (mode === 'image') && angle !== 0;
       if (needOverscan) {
         const diag = Math.ceil(Math.hypot(W, H));
         bgImageLayer.style.width = `${diag}px`;
@@ -1654,12 +1691,9 @@
       }
     }
     
-    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-    // ★★★★★★★  最終修正箇所: applyBgStyles  ★★★★★★★
-    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     function applyBgStyles() {
         const mode = [...bgModeRadios].find(r => r.checked)?.value || 'solid';
-        bgImageLayer.style.cssText = ''; // Reset inline styles
+        bgImageLayer.style.cssText = '';
         bgImageLayer.style.position = 'absolute';
         bgImageLayer.style.top = '0';
         bgImageLayer.style.left = '0';
@@ -1675,7 +1709,6 @@
             bgBase.style.background = gradient;
             bgBase.style.backgroundImage = gradient;
         } else {
-            // Always set a base color in case the image is transparent
             bgBase.style.background = bgSolidColor.value;
             bgBase.style.backgroundColor = bgSolidColor.value;
         }
@@ -1703,11 +1736,9 @@
                 bgImageLayer.style.backgroundSize = `${scaleP}%`;
             }
 
-            // ★★★ 修正の核心部 ★★★
-            // background-position は使わず、transform の translate で位置を制御する
             bgImageLayer.style.backgroundPosition = `center center`;
             bgImageLayer.style.transform = `translate(${xPx}px, ${yPx}px) rotate(${angle}deg)`;
-            bgImageLayer.style.transformOrigin = 'center center'; // 中央を基点に回転
+            bgImageLayer.style.transformOrigin = 'center center';
             bgImageLayer.style.opacity = (bgOpacityValue/100).toString();
         }
     }
@@ -1797,13 +1828,11 @@
     bgSolidColor.value = '#dcdcdc';
     updateBgUI();
 
-    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-    // ★★★★★★★ 最終修正箇所: downloadBtn ★★★★★★★
-    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     downloadBtn.addEventListener('click', async () => {
       downloadBtn.disabled = true;
       const imageLayer = document.getElementById('bgImageLayer');
       const originalImageLayerStyleDisplay = imageLayer ? imageLayer.style.display : '';
+      const originalBodySrc = bodyImg.src;
 
       try {
         await showLoading('画像を書き出しています…');
@@ -1815,16 +1844,23 @@
         }
         const node = document.getElementById('preview');
         const wasOverlay = emptyOverlay.style.display !== 'none';
+        emptyOverlay.dataset.wasVisible = wasOverlay;
         if (wasOverlay) emptyOverlay.style.display = 'none';
         const rect = node.getBoundingClientRect();
         const w = Math.round(rect.width), h = Math.round(rect.height);
         const scale = TARGET_W / w;
         node.style.width = `${w}px`; node.style.height = `${h}px`;
         
-        const bgBase = document.getElementById('bgBase');
-        const originalStyle = bgBase.style.cssText;
-        const bgMode = [...document.querySelectorAll('input[name="bgMode"]')].find(r => r.checked)?.value || 'solid';
+        if (bodyImg.src && bodyImg.style.display !== 'none') {
+            const newSrc = await applyDropShadowToImage(bodyImg);
+            bodyImg.src = newSrc;
+            // ★★★ レンダリング待ちを追加 ★★★
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
 
+        const bgBase = document.getElementById('bgBase');
+        const originalBgBaseStyle = bgBase.style.cssText;
+        const bgMode = [...document.querySelectorAll('input[name="bgMode"]')].find(r => r.checked)?.value || 'solid';
         bgBase.style.cssText = '';
 
         if (bgMode === 'solid') {
@@ -1838,13 +1874,10 @@
           
           const styles = getComputedStyle(imageLayer);
           const baseColor = document.getElementById('bgSolidColor').value;
-          
-          // Use the raw style values from the imageLayer for transform
           const transformString = imageLayer.style.transform;
 
           bgBase.style.cssText = `
-            position: absolute !important;
-            inset: 0 !important;
+            position: absolute !important; inset: 0 !important;
             background-color: ${baseColor} !important;
             background-image: ${styles.backgroundImage} !important;
             background-repeat: ${styles.backgroundRepeat} !important;
@@ -1853,13 +1886,15 @@
             opacity: ${styles.opacity} !important;
             transform: ${transformString} !important;
             transform-origin: ${styles.transformOrigin} !important;
-            width: ${styles.width} !important;
-            height: ${styles.height} !important;
+            width: ${styles.width} !important; height: ${styles.height} !important;
           `;
         }
         
         const maskWasVisible = faceUnderlay.style.display !== 'none';
+        faceUnderlay.dataset.wasVisible = String(maskWasVisible);
         const bakedWasVisible = faceUnderlayBaked.style.display !== 'none';
+        faceUnderlayBaked.dataset.wasVisible = String(bakedWasVisible);
+
         faceUnderlay.style.display = 'none';
         if (faceImg.style.display !== 'none' && (!underlayToggle || underlayToggle.checked)) { faceUnderlayBaked.style.display = 'block'; }
         
@@ -1899,7 +1934,8 @@
         console.error('出力エラー:', e);
         alert('❌ 書き出し中にエラーが発生しました。サイズや設定を見直してください。');
       } finally {
-        // Restore all temporary styles
+        bodyImg.src = originalBodySrc;
+        
         const bgBase = document.getElementById('bgBase');
         if (bgBase) bgBase.style.cssText = '';
         applyBgStyles();
@@ -1912,11 +1948,7 @@
           node.style.height = '';
         }
         
-        const wasOverlay = emptyOverlay.style.display !== 'none' && emptyOverlay.dataset.wasVisible === 'true';
-        if (wasOverlay) emptyOverlay.style.display = '';
-
-        const faceUnderlay = document.getElementById('faceUnderlay');
-        const faceUnderlayBaked = document.getElementById('faceUnderlayBaked');
+        if (emptyOverlay.dataset.wasVisible === 'true') emptyOverlay.style.display = '';
         if(faceUnderlay) faceUnderlay.style.display = faceUnderlay.dataset.wasVisible === 'true' ? '' : 'none';
         if(faceUnderlayBaked) faceUnderlayBaked.style.display = faceUnderlayBaked.dataset.wasVisible === 'true' ? 'block' : 'none';
 
